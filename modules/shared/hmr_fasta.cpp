@@ -8,6 +8,7 @@
 #include "hmr_bin_file.hpp"
 #include "hmr_seq.hpp"
 #include "hmr_ui.hpp"
+#include "hmr_char.hpp"
 
 #include "hmr_fasta.hpp"
 
@@ -18,6 +19,19 @@ typedef struct FASTA_PARSE
     FASTA_PROC user_parser;
     void *user;
 } FASTA_PARSE;
+
+void fasta_name_trim(char* name, size_t *name_len)
+{
+    for (size_t i = 0, i_max = *name_len; i < i_max; ++i)
+    {
+        if (is_space(name[i]))
+        {
+            name[i] = '\0';
+            *name_len = i;
+            return;
+        }
+    }
+}
 
 inline void fasta_yield_line(char *line, size_t line_size, FASTA_PARSE &args, int32_t &index)
 {
@@ -51,6 +65,8 @@ inline void fasta_yield_line(char *line, size_t line_size, FASTA_PARSE &args, in
         args.seq_name_len = line_size-1;
         memcpy(args.seq_name, line+1, args.seq_name_len);
         args.seq_name[args.seq_name_len] = '\0';
+        //Trim the name to the first spacing.
+        fasta_name_trim(args.seq_name, &args.seq_name_len);
         //Reset the sequence.
         args.seq_data = NULL;
         args.seq_data_len = 0;
@@ -61,7 +77,7 @@ inline void fasta_yield_line(char *line, size_t line_size, FASTA_PARSE &args, in
         size_t seq_extend_len = args.seq_data_len + line_size;
         args.seq_data = static_cast<char *>(realloc(args.seq_data, seq_extend_len + 1));
         //Copy the data.
-        assert(args.seq_data + args.seq_data_len);
+        assert(args.seq_data);
         memcpy(args.seq_data + args.seq_data_len, line, line_size);
         args.seq_data_len = seq_extend_len;
         args.seq_data[args.seq_data_len] = '\0';
@@ -96,6 +112,7 @@ void hmr_fasta_read(const char *filepath, FASTA_PROC parser, void *user)
         fasta_yield_line(line, line_length, args, index);
     }
     //At the end of the line, yield the last result.
+    hmr_seq_upper(args.seq_data, args.seq_data_len);
     parser(index, args.seq_name, args.seq_name_len, args.seq_data, args.seq_data_len, user);
     //Close the file.
     text_close_read_line(&line_handle);

@@ -9,6 +9,7 @@
 typedef struct HMR_CONTIG
 {
     int32_t length;
+    int32_t enzyme_count;
     int32_t name_size;
     char *name;
 } HMR_CONTIG;
@@ -24,14 +25,14 @@ typedef union HMR_EDGE
     uint64_t data;
 } HMR_EDGE;
 
-typedef struct HMR_EDGE_COUNTER
+typedef struct HMR_EDGE_INFO
 {
     HMR_EDGE edge;
     int32_t pairs;
-    int32_t qualified_pairs;
-} HMR_EDGE_COUNTER;
+    double weights;
+} HMR_EDGE_INFO;
 
-typedef std::vector<HMR_EDGE_COUNTER> HMR_EDGE_COUNTERS;
+typedef std::vector<HMR_EDGE_INFO> HMR_EDGE_COUNTERS;
 
 typedef struct HMR_MAPPING
 {

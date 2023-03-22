@@ -54,24 +54,6 @@ bool position_in_range(int32_t pos, const ENZYME_RANGES& ranges)
     return false;
 }
 
-bool find_reads_pair(READ_POS_MAP& pos_map, const READ_POS& read_pos, const READ_POS& paired_read_pos)
-{
-    //Find the paired pos.
-    auto finder = pos_map.find(paired_read_pos.data);
-    if (finder == pos_map.end())
-    {
-        return false;
-    }
-    //We found the paired position, check whether the read pos is in the set.
-    auto read_finder = finder->second.find(read_pos.data);
-    if (read_finder == finder->second.end())
-    {
-        return false;
-    }
-    finder->second.erase(read_pos.data);
-    return true;
-}
-
 inline int32_t contig_id(MAPPING_DRAFT_USER* mapping_user, int32_t refId)
 {
     return (refId > -1 && refId < mapping_user->contig_idx) ? mapping_user->contig_id_map[refId] : -1;
@@ -83,69 +65,47 @@ void mapping_draft_read_align(size_t id, const MAPPING_INFO& mapping_info, void*
     //Check whether the mapping info is valid, then check whether the position is in range.
     int32_t ref_index = contig_id(mapping_user, mapping_info.refID),
         next_ref_index = contig_id(mapping_user, mapping_info.next_refID);
+    // 3852 stands for:
+    // - read unmapped (0x4)
+    // - mate unmapped (0x8)
+    // - not primary alignment (0x100)
+    // - read fails platform/vendor quality checks (0x200)
+    // - read is PCR or optical duplicate (0x400)
+    // - supplementary alignment (0x800)
     if (ref_index == -1 || next_ref_index == -1 //Reference index invalid detection.
-        || mapping_info.mapq == 255 //Map quality is invalid
-        //Position in range.
-        || !position_in_range(mapping_info.pos, mapping_user->contig_ranges[ref_index]))
+        || mapping_info.mapq == 255 //Map quality is invalid.
+        || mapping_info.mapq < mapping_user->mapq //Check whether the mapping reaches the minimum quality
+        || (mapping_info.flag & 3852) != 0 // Filtered source code.
+        || ref_index == next_ref_index // We don't care about the pairs on the same contigs.
+        || !position_in_range(mapping_info.pos, mapping_user->contig_ranges[ref_index])) //Position should appears in range.
     {
         return;
     }
+    //Output the edge to the output buffer.
+    if (mapping_user->output_size == mapping_user->output_offset)
+    {
+        //Flush the entire buffer to the file.
+        fwrite(mapping_user->output_buffer, mapping_user->output_size, 1, mapping_user->reads_file);
+        //Reset the offset back to beginning.
+        mapping_user->output_offset = 0;
+    }
+    //Save the edges to buffer.
+    HMR_MAPPING* output_read = reinterpret_cast<HMR_MAPPING*>(mapping_user->output_buffer + mapping_user->output_offset);
+    (*output_read) = HMR_MAPPING{ ref_index, mapping_info.pos, next_ref_index, mapping_info.next_pos };
+    mapping_user->output_offset += sizeof(HMR_MAPPING);
     //Construct the edge info.
-    READ_POS read_pos{ ref_index, mapping_info.pos }, paired_read_pos{ next_ref_index, mapping_info.next_pos };
-    HMR_EDGE edge = hmr_graph_edge(read_pos.read.id, paired_read_pos.read.id);
-    //Create the edge information, no matter how.
-    RAW_EDGE_MAP& edge_map = mapping_user->edges;
+    HMR_EDGE edge = hmr_graph_edge(ref_index, next_ref_index);
+    //A new pair is found.
+    auto& edge_map = mapping_user->edges;
     auto edge_iter = edge_map.find(edge.data);
-    if (edge_map.find(edge.data) == edge_map.end())
+    if (edge_iter == edge_map.end())
     {
-        //Insert a new edge record.
-        edge_map.insert(std::make_pair(edge.data, MAPPING_COUNT {1, 0}));
-        //Update the edge iterator.
-        edge_iter = edge_map.find(edge.data);
+        //Insert one count to the data.
+        edge_map.insert(std::make_pair(edge.data, 1));
     }
     else
     {
-        //Increase the edge counter.
-        ++(edge_iter->second.pairs);
-    }
-    //Check whether the mapping reaches the minimum quality,
-    if (mapping_info.mapq < mapping_user->mapq ||
-        //the index are coming from the same contig.
-        ref_index == next_ref_index)
-    {
-        return;
-    }
-    //The current mapping information matches the request, check whether the paired read is in the record.
-    if (find_reads_pair(mapping_user->records, read_pos, paired_read_pos))
-    {
-        //Paired information are found.
-        ++(edge_iter->second.qualified_pairs);
-        //Save the edge to the buffer.
-        if (mapping_user->output_offset == mapping_user->output_size)
-        {
-            fwrite(mapping_user->output_buffer, mapping_user->output_size, 1, mapping_user->reads_file);
-            mapping_user->output_offset = 0;
-        }
-        //Construct and write the mapping info to the reads file.
-        HMR_MAPPING* mapping = reinterpret_cast<HMR_MAPPING*>(mapping_user->output_buffer + mapping_user->output_offset);
-        *mapping = HMR_MAPPING{ read_pos.read.id, mapping_info.pos, paired_read_pos.read.id, mapping_info.next_pos };
-        mapping_user->output_offset += sizeof(HMR_MAPPING);
-    }
-    else
-    {
-        READ_POS_MAP& pos_map = mapping_user->records;
-        //Insert the mapping pair info to pos map.
-        auto finder = pos_map.find(read_pos.data);
-        if (finder == pos_map.end())
-        {
-            //Create a new record.
-            READ_POS_SET pos_set;
-            pos_set.insert(paired_read_pos.data);
-            pos_map.insert(std::make_pair(read_pos.data, pos_set));
-        }
-        else
-        {
-            finder->second.insert(paired_read_pos.data);
-        }
+            
+        ++(edge_iter->second);
     }
 }

@@ -1,5 +1,5 @@
-#ifndef ARGS_CORRECT_H
-#define ARGS_CORRECT_H
+#ifndef ARGS_DRAFT_H
+#define ARGS_DRAFT_H
 
 #include <vector>
 
@@ -13,4 +13,4 @@ typedef struct HMR_ARGS
     int enzyme_nuc_length = 0, mapq = 40, threads = 1, range = 500, min_enzymes = 0;
 } HMR_ARGS;
 
-#endif // ARGS_CORRECT_H
+#endif // ARGS_DRAFT_H

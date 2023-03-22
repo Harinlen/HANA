@@ -10,6 +10,7 @@ typedef struct MAPPING_INFO
     int32_t pos;
     int32_t next_refID;
     int32_t next_pos;
+    uint16_t flag;
     uint8_t mapq;
 } MAPPING_INFO;
 

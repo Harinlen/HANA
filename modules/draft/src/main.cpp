@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <cstdio>
+#include <cassert>
 
 #include "hmr_args.hpp"
 #include "hmr_path.hpp"
@@ -8,6 +9,8 @@
 #include "hmr_fasta.hpp"
 #include "hmr_mapping.hpp"
 #include "hmr_bin_file.hpp"
+#include "hmr_text_file.hpp"
+#include "hmr_global.hpp"
 
 #include "hmr_contig_graph_type.hpp"
 #include "hmr_contig_graph.hpp"
@@ -41,6 +44,7 @@ int main(int argc, char* argv[])
     HMR_CONTIGS contigs;
     HMR_CONTIG_INVALID_SET invalid_id_set;
     ENZYME_RANGES* contig_ranges;
+    size_t max_enzyme_counts = 0;
     {
         //Prepare the enzyme for searching.
         ENZYME_SEARCH search;
@@ -61,6 +65,8 @@ int main(int argc, char* argv[])
         int32_t range_index = 0;
         while (chain_node != NULL)
         {
+            //Calculate the max enzyme count.
+            max_enzyme_counts = hMax(max_enzyme_counts, chain_node->data.counter);
             //Save the data to contig range.
             contig_ranges[range_index].counter = chain_node->data.counter;
             contig_ranges[range_index] = chain_node->data;
@@ -104,9 +110,9 @@ int main(int argc, char* argv[])
             invalid_id_set = HMR_CONTIG_INVALID_SET(invalid_ids.begin(), invalid_ids.end());
         }
     }
-    return 0;
     //Build the contig edge counters.
     HMR_EDGE_COUNTERS edge_counters;
+    double max_enzyme_counts_square = static_cast<double>(hSquare(max_enzyme_counts));
     {
         time_print("Constructing contig name -> id map...");
         //Map contig name to an index.
@@ -124,8 +130,16 @@ int main(int argc, char* argv[])
             time_error(-1, "Failed to create read information file %s", path_reads.data());
         }
         time_print("Writing reads summary information to %s", path_reads.data());
+        //Prepare the output buffer.
+        size_t output_size = sizeof(HMR_MAPPING) * 1024;
+        char* output_buffer = NULL;
+        if (output_size)
+        {
+            output_buffer = static_cast<char*>(malloc(output_size));
+            assert(output_buffer);
+        }
         //Read all the mapping files and count the edges.
-        MAPPING_DRAFT_USER mapping_user { contig_ids, invalid_id_set, contig_ranges, static_cast<uint8_t>(opts.mapq), NULL, 0, reads_file, NULL, 0, 0, READ_POS_MAP(), RAW_EDGE_MAP()};
+        MAPPING_DRAFT_USER mapping_user { contig_ids, invalid_id_set, contig_ranges, static_cast<uint8_t>(opts.mapq), NULL, 0, reads_file, output_buffer, 0, output_size, RAW_EDGE_MAP()};
         for (char* mapping_path : opts.mappings)
         {
             time_print("Loading reads from %s", mapping_path);
@@ -154,7 +168,9 @@ int main(int argc, char* argv[])
             //Construct the edge counter.
             HMR_EDGE edge;
             edge.data = edge_info.first;
-            edge_counters.push_back(HMR_EDGE_COUNTER{ edge, edge_info.second.pairs, edge_info.second.qualified_pairs });
+            int32_t pair_count = edge_info.second;
+            double weight = max_enzyme_counts_square / static_cast<double>(contig_ranges[edge.pos.start].counter) / static_cast<double>(contig_ranges[edge.pos.end].counter) * pair_count;
+            edge_counters.push_back(HMR_EDGE_INFO{ edge, pair_count, weight });
         }
         time_print("Done");
     }

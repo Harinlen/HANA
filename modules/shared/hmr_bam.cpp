@@ -61,7 +61,7 @@ void hmr_bam_read(const char* filepath, MAPPING_PROC proc, void* user, int threa
         //Recast the block data into header.
         BAM_BLOCK_HEADER* header = reinterpret_cast<BAM_BLOCK_HEADER*>(block_data);
         //Call the process function.
-        proc.proc_read_align(block_id, MAPPING_INFO {header->refID, header->pos, header->next_refID, header->next_pos, header->mapq}, user);
+        proc.proc_read_align(block_id, MAPPING_INFO {header->refID, header->pos, header->next_refID, header->next_pos, header->flag, header->mapq}, user);
         //Increase the block id.
         ++block_id;
         //Fetch the next block.

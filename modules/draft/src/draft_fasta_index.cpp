@@ -77,6 +77,8 @@ void contig_range_search(const ENZYME_RANGE_SEARCH& param)
         chain_ranges.ranges[range_index] = *i;
         ++range_index;
     }
+    //Update the range count.
+    param.contig->enzyme_count = static_cast<int32_t>(counter);
     //Free the sequence.
     free(param.seq);
 }
@@ -85,7 +87,8 @@ void contig_draft_build(int32_t index, char* seq_name, size_t seq_name_size, cha
 {
     DRAFT_NODES_USER* node_user = reinterpret_cast<DRAFT_NODES_USER*>(user);
     //Append the sequence information.
-    node_user->nodes->push_back(HMR_CONTIG{ static_cast<int32_t>(seq_size), static_cast<int32_t>(seq_name_size), seq_name });
+    size_t node_index = node_user->nodes->size();
+    node_user->nodes->push_back(HMR_CONTIG{ static_cast<int32_t>(seq_size), 0, static_cast<int32_t>(seq_name_size), seq_name });
     //Create the search chain.
     ENZYME_RANGE_CHAIN* chain_node = new ENZYME_RANGE_CHAIN();
     chain_node->next = NULL;
@@ -102,5 +105,5 @@ void contig_draft_build(int32_t index, char* seq_name, size_t seq_name_size, cha
         node_user->chain_tail = chain_node;
     }
     //Push the search request into search pool.
-    node_user->pool->push_task(ENZYME_RANGE_SEARCH{ node_user->search, chain_node, seq, static_cast<int32_t>(seq_size), node_user->range });
+    node_user->pool->push_task(ENZYME_RANGE_SEARCH{ node_user->search, chain_node, &((*node_user->nodes)[node_index]), seq, static_cast<int32_t>(seq_size), node_user->range});
 }
