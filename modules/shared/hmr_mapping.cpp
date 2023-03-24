@@ -8,7 +8,6 @@ void hmr_mapping_read(const char* filepath, MAPPING_PROC proc, void* user, int t
 {
     // Based on the suffix of the file path, decide how to load the file.
     std::string mapping_suffix = path_suffix(filepath);
-    void* mapping_handle = NULL;
     if (mapping_suffix == ".bam")
     {
         //Read the file as bam.

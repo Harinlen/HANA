@@ -1,7 +1,10 @@
 #ifndef DRAFT_MAP_TYPE
 #define DRAFT_MAP_TYPE
 
+#include <cstdlib>
+#include <cstdio>
 #include <unordered_map>
+#include <string>
 
 #include "hmr_contig_graph_type.hpp"
 

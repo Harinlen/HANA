@@ -9,6 +9,8 @@ typedef struct THREAD_BLOCK
     int total;
 } THREAD_BLOCK;
 
+#define HMR_UNUSED(x) (void)x;
+
 template <typename T>
 constexpr inline const T &hMin(const T &a, const T &b) { return (a < b) ? a : b; }
 

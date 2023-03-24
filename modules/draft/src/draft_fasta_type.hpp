@@ -1,6 +1,7 @@
 #ifndef DRAFT_FASTA_TYPE_H
 #define DRAFT_FASTA_TYPE_H
 
+#include <cstdlib>
 #include <cstdint>
 
 typedef struct ENZYME_RANGE

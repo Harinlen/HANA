@@ -1,6 +1,7 @@
 #ifndef ARGS_DRAFT_H
 #define ARGS_DRAFT_H
 
+#include <cstdlib>
 #include <vector>
 
 typedef struct HMR_ARGS

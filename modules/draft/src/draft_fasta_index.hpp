@@ -27,7 +27,6 @@ typedef struct ENZYME_RANGE_SEARCH
 {
     ENZYME_SEARCH* search;
     ENZYME_RANGE_CHAIN* chain_node;
-    HMR_CONTIG* contig;
     char* seq;
     int32_t seq_size, range;
 } ENZYME_RANGE_SEARCH;

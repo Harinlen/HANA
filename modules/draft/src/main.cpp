@@ -76,12 +76,24 @@ int main(int argc, char* argv[])
             free(chain_node);
             chain_node = next;
         }
-        if (range_index != contigs.size())
+        if (static_cast<size_t>(range_index) != contigs.size())
         {
             time_error(-1, "Unexpected error: contig size and range index size mismatch.");
         }
         //Search complete.
         time_print("%zu contig(s) indexed.", range_index);
+        //Checking which contig is valid, if invalid, generate the invalid list.
+        time_print("Checking invalid contig(s)...");
+        HMR_CONTIG_INVALID_IDS invalid_ids;
+        for (int32_t i = 0; i < range_index; ++i)
+        {
+            contigs[i].enzyme_count = static_cast<int32_t>(contig_ranges[i].counter);
+            if (contig_ranges[i].counter < static_cast<size_t>(opts.min_enzymes))
+            {
+                invalid_ids.push_back(i);
+            }
+        }
+        time_print("%zu invalid contig(s) detected.", invalid_ids.size());
         //Dump the node data to target file.
         {
             std::string path_contig = hmr_graph_path_contig(opts.output);
@@ -89,17 +101,6 @@ int main(int argc, char* argv[])
             hmr_graph_save_contigs(path_contig.data(), contigs);
             time_print("Done");
         }
-        //Checking which contig is valid, if invalid, generate the invalid list.
-        time_print("Checking invalid contig(s)...");
-        HMR_CONTIG_INVALID_IDS invalid_ids;
-        for (int32_t i = 0; i < range_index; ++i)
-        {
-            if (contig_ranges[i].counter < opts.min_enzymes)
-            {
-                invalid_ids.push_back(i);
-            }
-        }
-        time_print("%zu invalid contig(s) detected.", invalid_ids.size());
         if (!invalid_ids.empty())
         {
             std::string path_invalid = hmr_graph_path_invalid(opts.output);
@@ -110,9 +111,17 @@ int main(int argc, char* argv[])
             invalid_id_set = HMR_CONTIG_INVALID_SET(invalid_ids.begin(), invalid_ids.end());
         }
     }
+    FILE *counts = fopen("/home/saki/Documents/hana-results/bare/sample.unique.REduced.paired_only.counts_GATC.txt", "w");
+    fprintf(counts, "#Contig\tRECounts\tLength");
+    for(int i=0; i<contigs.size(); ++i)
+    {
+        fprintf(counts, "\n%s\t%d\t%d", contigs[i].name, contigs[i].enzyme_count, contigs[i].length);
+    }
+    fclose(counts);
+    return 0;
     //Build the contig edge counters.
     HMR_EDGE_COUNTERS edge_counters;
-    double max_enzyme_counts_square = static_cast<double>(hSquare(max_enzyme_counts));
+    //double max_enzyme_counts_square = static_cast<double>(hSquare(max_enzyme_counts));
     {
         time_print("Constructing contig name -> id map...");
         //Map contig name to an index.
@@ -163,15 +172,21 @@ int main(int argc, char* argv[])
         //Build the edge map.
         time_print("Calculating %zu edge weights...", mapping_user.edges.size());
         edge_counters.reserve(mapping_user.edges.size());
+
+        FILE *dump;
+        text_open_write("/home/saki/Documents/bwa-results/bare-debug/edge_weight_hana.txt", &dump);
         for (const auto& edge_info : mapping_user.edges)
         {
             //Construct the edge counter.
             HMR_EDGE edge;
             edge.data = edge_info.first;
             int32_t pair_count = edge_info.second;
-            double weight = max_enzyme_counts_square / static_cast<double>(contig_ranges[edge.pos.start].counter) / static_cast<double>(contig_ranges[edge.pos.end].counter) * pair_count;
+            double weight = pair_count / static_cast<double>(contigs[edge.pos.start].length) / static_cast<double>(contigs[edge.pos.end].length);
+            fprintf(dump, "%d\t%d\t%d\t%d\t%d\t%lf\n", edge.pos.start, edge.pos.end, pair_count, contigs[edge.pos.start].enzyme_count, contigs[edge.pos.end].enzyme_count, static_cast<double>(pair_count) / contigs[edge.pos.start].enzyme_count / contigs[edge.pos.end].enzyme_count * max_enzyme_counts * max_enzyme_counts);
             edge_counters.push_back(HMR_EDGE_INFO{ edge, pair_count, weight });
         }
+        fclose(dump);
+
         time_print("Done");
     }
     //Dump the edge information into files.

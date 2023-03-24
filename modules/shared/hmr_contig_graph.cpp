@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 
 #include "hmr_bin_file.hpp"
 #include "hmr_ui.hpp"
@@ -92,7 +93,10 @@ void hmr_graph_restore_nodes_node_proc(int32_t length, int32_t enzyme_count, int
 {
     HMR_CONTIGS* contigs = reinterpret_cast<HMR_CONTIGS*>(user);
     //Create contig node info.
-    contigs->push_back(HMR_CONTIG{ length, enzyme_count, name_size, name_buff });
+    char *contig_name = static_cast<char *>(malloc(name_size + 1));
+    strncpy(contig_name, name_buff, name_size);
+    contig_name[name_size] = '\0';
+    contigs->push_back(HMR_CONTIG{ length, enzyme_count, name_size, contig_name });
 }
 
 void hmr_graph_restore_contig_data(const char* filepath, HMR_CONTIGS* contigs)
@@ -192,21 +196,42 @@ void hmr_graph_load_edge(const char* filepath, EDGE_SIZE_PROC size_parser, EDGE_
     }
 }
 
-void hmr_graph_restore_edge_size_proc(uint64_t edge_sizes, void* user)
+void hmr_graph_restore_edges_size_proc(uint64_t edge_sizes, void* user)
 {
-    HMR_EDGE_COUNTERS* edges = reinterpret_cast<HMR_EDGE_COUNTERS*>(user);
+    HMR_EDGE_COUNTERS *edges = reinterpret_cast<HMR_EDGE_COUNTERS *>(user);
+    //Reserve the items.
+    edges->reserve(edge_sizes);
+}
+
+void hmr_graph_restore_edges_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
+{
+    HMR_EDGE_COUNTERS *edges = reinterpret_cast<HMR_EDGE_COUNTERS *>(user);
+    //Append the data.
+    edges->push_back(edge_info);
+}
+
+void hmr_graph_restore_edges(const char *filepath, HMR_EDGE_COUNTERS *edges)
+{
+    hmr_graph_load_edge(filepath, hmr_graph_restore_edges_size_proc, hmr_graph_restore_edges_data_proc, edges);
+}
+
+void hmr_graph_restore_edge_map_size_proc(uint64_t edge_sizes, void* user)
+{
+    HMR_EDGE_MAP* edge_map = reinterpret_cast<HMR_EDGE_MAP*>(user);
     //Reserve the edge info.
-    ;
+    edge_map->reserve(edge_sizes);
 }
 
-void hmr_graph_restore_edge_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
+void hmr_graph_restore_edge_map_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
 {
-    ;
+    HMR_EDGE_MAP* edge_map = reinterpret_cast<HMR_EDGE_MAP*>(user);
+    //Append the edge information.
+    edge_map->insert(std::make_pair(edge_info.edge.data, edge_info.weights));
 }
 
-void hmr_graph_restore_edge(const char* filepath, HMR_EDGE_COUNTERS* edges)
+void hmr_graph_restore_edge_map(const char* filepath, HMR_EDGE_MAP *edge_map)
 {
-    hmr_graph_load_edge();
+    hmr_graph_load_edge(filepath, hmr_graph_restore_edge_map_size_proc, hmr_graph_restore_edge_map_data_proc, edge_map);
 }
 
 bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges)
@@ -265,7 +290,7 @@ bool hmr_graph_save_invalid(const char* filepath, const HMR_CONTIG_INVALID_IDS& 
     return false;
 }
 
-bool hmr_graph_save_partition(const char* filepath, const CHROMOSOME_GROUP& group_ids)
+bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& contig_ids)
 {
     FILE* group_id_file;
     if (!bin_open(filepath, &group_id_file, "wb"))
@@ -274,24 +299,13 @@ bool hmr_graph_save_partition(const char* filepath, const CHROMOSOME_GROUP& grou
         return false;
     }
     //Write the total groups.
-    size_t group_size = group_ids.size();
+    size_t group_size = contig_ids.size();
     fwrite(&group_size, sizeof(size_t), 1, group_id_file);
     //Write the allele group size.
-    for (const auto& allele_groups : group_ids)
+    for (int32_t contig_id: contig_ids)
     {
         //Write the allele group size.
-        group_size = allele_groups.size();
-        fwrite(&group_size, sizeof(size_t), 1, group_id_file);
-        for (const auto& contig_ids : allele_groups)
-        {
-            //Write the number of contigs.
-            group_size = contig_ids.size();
-            fwrite(&group_size, sizeof(size_t), 1, group_id_file);
-            for (const int32_t& contig_id : contig_ids)
-            {
-                fwrite(&contig_id, sizeof(int32_t), 1, group_id_file);
-            }
-        }
+        fwrite(&contig_id, sizeof(int32_t), 1, group_id_file);
     }
     return true;
 }

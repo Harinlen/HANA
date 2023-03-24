@@ -5,6 +5,7 @@
 #include <vector>
 #include <list>
 #include <unordered_set>
+#include <unordered_map>
 
 typedef struct HMR_CONTIG
 {
@@ -33,6 +34,7 @@ typedef struct HMR_EDGE_INFO
 } HMR_EDGE_INFO;
 
 typedef std::vector<HMR_EDGE_INFO> HMR_EDGE_COUNTERS;
+typedef std::unordered_map<uint64_t, double> HMR_EDGE_MAP;
 
 typedef struct HMR_MAPPING
 {
@@ -46,9 +48,9 @@ typedef std::list<int32_t> HMR_CONTIG_INVALID_IDS;
 typedef std::unordered_set<int32_t> HMR_CONTIG_INVALID_SET;
 
 typedef std::unordered_set<int32_t> CONTIG_ID_SET;
-typedef std::vector<int32_t> CONTIG_ID_VECTOR;
+typedef std::vector<CONTIG_ID_SET> CONTIG_ID_SETS;
 
+typedef std::vector<int32_t> CONTIG_ID_VECTOR;
 typedef std::vector<CONTIG_ID_VECTOR> CONTIG_ID_VECTORS;
-typedef std::vector<CONTIG_ID_VECTORS> CHROMOSOME_GROUP;
 
 #endif // HMR_CONTIG_GRAPH_TYPE_H

@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "hmr_contig_graph.hpp"
+#include "hmr_global.hpp"
 
 #include "draft_mapping.hpp"
 
@@ -20,6 +21,7 @@ void mapping_draft_n_contig(uint32_t n_ref, void* user)
 
 void mapping_draft_contig(uint32_t name_length, char* name, uint32_t length, void* user)
 {
+    HMR_UNUSED(length)
     MAPPING_DRAFT_USER* mapping_user = reinterpret_cast<MAPPING_DRAFT_USER*>(user);
     //Build the contig mapping index.
     std::string contig_name(name, name_length);
@@ -61,6 +63,7 @@ inline int32_t contig_id(MAPPING_DRAFT_USER* mapping_user, int32_t refId)
 
 void mapping_draft_read_align(size_t id, const MAPPING_INFO& mapping_info, void* user)
 {
+    HMR_UNUSED(id)
     MAPPING_DRAFT_USER* mapping_user = reinterpret_cast<MAPPING_DRAFT_USER*>(user);
     //Check whether the mapping info is valid, then check whether the position is in range.
     int32_t ref_index = contig_id(mapping_user, mapping_info.refID),
@@ -77,7 +80,7 @@ void mapping_draft_read_align(size_t id, const MAPPING_INFO& mapping_info, void*
         || mapping_info.mapq < mapping_user->mapq //Check whether the mapping reaches the minimum quality
         || (mapping_info.flag & 3852) != 0 // Filtered source code.
         || ref_index == next_ref_index // We don't care about the pairs on the same contigs.
-        || !position_in_range(mapping_info.pos, mapping_user->contig_ranges[ref_index])) //Position should appears in range.
+        || (!position_in_range(mapping_info.pos, mapping_user->contig_ranges[ref_index]))) // Or the position is not in the position.
     {
         return;
     }
@@ -105,7 +108,7 @@ void mapping_draft_read_align(size_t id, const MAPPING_INFO& mapping_info, void*
     }
     else
     {
-            
+
         ++(edge_iter->second);
     }
 }

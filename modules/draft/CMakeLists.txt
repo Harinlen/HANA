@@ -26,8 +26,8 @@ add_executable(hana_draft
     ../shared/hmr_fasta.cpp
     ../shared/hmr_gz.cpp
     ../shared/hmr_mapping.cpp
-    ../shared/hmr_seq.cpp
     ../shared/hmr_path.cpp
+    ../shared/hmr_seq.cpp
     ../shared/hmr_text_file.cpp
     ../shared/hmr_ui.cpp
     src/args_draft.cpp

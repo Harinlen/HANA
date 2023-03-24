@@ -92,7 +92,7 @@ namespace hmr
         }
 
     private:
-        inline const int32_t next_pos(int current_pos) const
+        inline int32_t next_pos(int current_pos) const
         {
             return (current_pos == m_size - 1) ? 0 : (current_pos + 1);
         }

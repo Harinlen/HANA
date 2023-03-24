@@ -4,3 +4,4 @@ __pycache__
 CMakeLists.txt.user
 .vs
 *.vcxproj.user
+*.pro.user
