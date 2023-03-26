@@ -52,5 +52,6 @@ typedef std::vector<CONTIG_ID_SET> CONTIG_ID_SETS;
 
 typedef std::vector<int32_t> CONTIG_ID_VECTOR;
 typedef std::vector<CONTIG_ID_VECTOR> CONTIG_ID_VECTORS;
+typedef std::vector<CONTIG_ID_VECTOR *> CONTIG_ID_CLUSTERS;
 
 #endif // HMR_CONTIG_GRAPH_TYPE_H

@@ -111,14 +111,6 @@ int main(int argc, char* argv[])
             invalid_id_set = HMR_CONTIG_INVALID_SET(invalid_ids.begin(), invalid_ids.end());
         }
     }
-    FILE *counts = fopen("/home/saki/Documents/hana-results/bare/sample.unique.REduced.paired_only.counts_GATC.txt", "w");
-    fprintf(counts, "#Contig\tRECounts\tLength");
-    for(int i=0; i<contigs.size(); ++i)
-    {
-        fprintf(counts, "\n%s\t%d\t%d", contigs[i].name, contigs[i].enzyme_count, contigs[i].length);
-    }
-    fclose(counts);
-    return 0;
     //Build the contig edge counters.
     HMR_EDGE_COUNTERS edge_counters;
     //double max_enzyme_counts_square = static_cast<double>(hSquare(max_enzyme_counts));
@@ -172,21 +164,16 @@ int main(int argc, char* argv[])
         //Build the edge map.
         time_print("Calculating %zu edge weights...", mapping_user.edges.size());
         edge_counters.reserve(mapping_user.edges.size());
-
-        FILE *dump;
-        text_open_write("/home/saki/Documents/bwa-results/bare-debug/edge_weight_hana.txt", &dump);
+        double max_enzyme_counts_square = static_cast<double>(hSquare(max_enzyme_counts));
         for (const auto& edge_info : mapping_user.edges)
         {
             //Construct the edge counter.
             HMR_EDGE edge;
             edge.data = edge_info.first;
             int32_t pair_count = edge_info.second;
-            double weight = pair_count / static_cast<double>(contigs[edge.pos.start].length) / static_cast<double>(contigs[edge.pos.end].length);
-            fprintf(dump, "%d\t%d\t%d\t%d\t%d\t%lf\n", edge.pos.start, edge.pos.end, pair_count, contigs[edge.pos.start].enzyme_count, contigs[edge.pos.end].enzyme_count, static_cast<double>(pair_count) / contigs[edge.pos.start].enzyme_count / contigs[edge.pos.end].enzyme_count * max_enzyme_counts * max_enzyme_counts);
+            double weight = max_enzyme_counts_square / static_cast<double>(contigs[edge.pos.start].enzyme_count) / static_cast<double>(contigs[edge.pos.end].enzyme_count) * pair_count;
             edge_counters.push_back(HMR_EDGE_INFO{ edge, pair_count, weight });
         }
-        fclose(dump);
-
         time_print("Done");
     }
     //Dump the edge information into files.

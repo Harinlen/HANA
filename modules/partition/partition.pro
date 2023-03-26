@@ -11,10 +11,12 @@ HEADERS += \
     ../shared/hmr_bin_file.hpp \
     ../shared/hmr_contig_graph.hpp \
     ../shared/hmr_contig_graph_type.hpp \
+    ../shared/hmr_global.hpp \
     ../shared/hmr_path.hpp \
     ../shared/hmr_ui.hpp \
     src/args_partition.hpp \
-    src/partition.hpp
+    src/partition.hpp \
+    src/partition_type.hpp
 
 SOURCES += \
     ../shared/hmr_args.cpp \

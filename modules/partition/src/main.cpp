@@ -6,6 +6,7 @@
 #include "hmr_ui.hpp"
 #include "hmr_path.hpp"
 #include "hmr_contig_graph.hpp"
+#include "partition_type.hpp"
 #include "partition.hpp"
 
 #include "args_partition.hpp"
@@ -33,30 +34,33 @@ int main(int argc, char* argv[])
     time_print("Loading contig information from %s", opts.nodes);
     hmr_graph_restore_contig_data(opts.nodes, &contigs);
     time_print("%zu contig(s) information loaded.", contigs.size());
-    //Read the edge information.
-    time_print("Loading edge information from %s", opts.edge);
-    HMR_EDGE_COUNTERS edge_weights;
-    hmr_graph_restore_edges(opts.edge, &edge_weights);
-    time_print("Contig edges loaded.");
-    //Sort the edge values.
-    time_print("Sorting edges based on their weights...");
-    std::sort(edge_weights.begin(), edge_weights.end(),
-              [](const HMR_EDGE_INFO &l, const HMR_EDGE_INFO &r)
+    //Building clusters for the contigs.
+    CLUSTER_INFO cluster_user;
+    partition_create_init_clusters(contigs, cluster_user);
     {
-        return l.weights > r.weights;
-    });
-    time_print("%zu edges sorted.", edge_weights.size());
-    //Partition mission start.
-    time_print("Dividing contigs into %d groups...", opts.groups);
-    CONTIG_ID_VECTORS group_result = partition_contigs(contigs, edge_weights, opts.groups);
-    time_print("Partition complete.");
-    char output_path[4096];
-    int32_t group_count = static_cast<int32_t>(group_result.size());
-    for(int32_t i=0; i<group_count; ++i)
+        //Read the edge information.
+        time_print("Loading edge information from %s", opts.edge);
+        HMR_EDGE_MAP graph_edges;
+        hmr_graph_restore_edge_map(opts.edge, &graph_edges);
+        time_print("Contig edges loaded.");
+        //Generate link densities based on graph edge information.
+        partition_init_link_densities(contigs, graph_edges, cluster_user, opts.min_re, opts.max_link_density, opts.output);
+    }
+    //Start clustering.
+    time_print("Start clustering...");
+    partition_cluster(cluster_user, opts.groups);
+    time_print("%zu group(s) finally generated.", cluster_user.cluster_size);
+    //Dumping the result to the output file.
+    char group_file_path[4096];
+    for(size_t i=0; i<cluster_user.cluster_size; ++i)
     {
-        time_print("Writing group %zu result (%zu contigs)...", i+1, group_result[i].size());
-        sprintf(output_path, "%s_%dg%d.hmr_group", opts.output, group_count, i+1);
-        hmr_graph_save_partition(output_path, group_result[i]);
+        CONTIG_ID_VECTOR &cluster = *cluster_user.clusters[i];
+        //Construct the file path.
+        sprintf(group_file_path, "%s_%zug%zu.hmr_group", opts.output, cluster_user.cluster_size, i+1);
+        time_print("Saving cluster %zu (%zu contigs) to %s...", i+1, cluster.size(), group_file_path);
+        //Sort the partition.
+        std::sort(cluster.begin(), cluster.end());
+        hmr_graph_save_partition(group_file_path, cluster);
     }
     time_print("Partition complete.");
     return 0;

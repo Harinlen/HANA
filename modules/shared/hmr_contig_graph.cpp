@@ -93,8 +93,13 @@ void hmr_graph_restore_nodes_node_proc(int32_t length, int32_t enzyme_count, int
 {
     HMR_CONTIGS* contigs = reinterpret_cast<HMR_CONTIGS*>(user);
     //Create contig node info.
-    char *contig_name = static_cast<char *>(malloc(name_size + 1));
+    char* contig_name = static_cast<char*>(malloc(static_cast<size_t>(name_size + 2)));
+    assert(contig_name);
+#ifdef _MSC_VER
+    strncpy_s(contig_name, name_size + 1, name_buff, name_size);
+#else
     strncpy(contig_name, name_buff, name_size);
+#endif
     contig_name[name_size] = '\0';
     contigs->push_back(HMR_CONTIG{ length, enzyme_count, name_size, contig_name });
 }
@@ -171,13 +176,16 @@ void hmr_graph_load_edge_bin(const char* filepath, EDGE_SIZE_PROC size_parser, E
     uint64_t edge_sizes = 0;
     fread(&edge_sizes, sizeof(uint64_t), 1, edge_file);
     size_parser(edge_sizes, user);
-    HMR_EDGE_INFO counter;
+    HMR_EDGE_INFO edge_info;
     for (uint64_t i = 0; i < edge_sizes; ++i)
     {
         //Read the edge counter structure.
-        fread(&counter, sizeof(HMR_EDGE_INFO), 1, edge_file);
+        fread(&edge_info.edge.pos.start, sizeof(int32_t), 1, edge_file);
+        fread(&edge_info.edge.pos.end, sizeof(int32_t), 1, edge_file);
+        fread(&edge_info.pairs, sizeof(int32_t), 1, edge_file);
+        fread(&edge_info.weights, sizeof(double), 1, edge_file);
         //Call the parser.
-        parser(counter, user);
+        parser(edge_info, user);
     }
     //Close the file.
     fclose(edge_file);
@@ -203,11 +211,11 @@ void hmr_graph_restore_edges_size_proc(uint64_t edge_sizes, void* user)
     edges->reserve(edge_sizes);
 }
 
-void hmr_graph_restore_edges_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
+void hmr_graph_restore_edges_data_proc(const HMR_EDGE_INFO& edge_data, void* user)
 {
     HMR_EDGE_COUNTERS *edges = reinterpret_cast<HMR_EDGE_COUNTERS *>(user);
     //Append the data.
-    edges->push_back(edge_info);
+    edges->push_back(edge_data);
 }
 
 void hmr_graph_restore_edges(const char *filepath, HMR_EDGE_COUNTERS *edges)
@@ -246,9 +254,12 @@ bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges)
     //Write the edge information.
     uint64_t edge_sizes = static_cast<uint64_t>(edges.size());
     fwrite(&edge_sizes, sizeof(uint64_t), 1, edge_file);
-    for (const HMR_EDGE_INFO& edge : edges)
+    for (const HMR_EDGE_INFO& edge_info : edges)
     {
-        fwrite(&edge, sizeof(HMR_EDGE_INFO), 1, edge_file);
+        fwrite(&edge_info.edge.pos.start, sizeof(int32_t), 1, edge_file);
+        fwrite(&edge_info.edge.pos.end, sizeof(int32_t), 1, edge_file);
+        fwrite(&edge_info.pairs, sizeof(int32_t), 1, edge_file);
+        fwrite(&edge_info.weights, sizeof(double), 1, edge_file);
     }
     fclose(edge_file);
     return true;
