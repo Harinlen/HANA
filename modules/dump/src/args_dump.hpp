@@ -8,6 +8,7 @@ typedef struct HMR_ARGS
     char* bam_file = nullptr;
     char* output = nullptr;
     char* edge_file = nullptr;
+    char* group_file = nullptr;
     int threads = 1;
 } HMR_ARGS;
 

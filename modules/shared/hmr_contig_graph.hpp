@@ -43,6 +43,7 @@ bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges);
 std::string hmr_graph_path_invalid(const char* prefix);
 bool hmr_graph_save_invalid(const char* filepath, const HMR_CONTIG_INVALID_IDS& ids, bool binary_format = true);
 
+bool hmr_graph_load_partition(const char* filepath, CONTIG_ID_VECTOR& contig_ids);
 bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& contig_ids);
 
 #endif // HMR_CONTIG_GRAPH_H

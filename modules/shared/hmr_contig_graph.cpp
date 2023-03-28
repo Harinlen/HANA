@@ -301,6 +301,29 @@ bool hmr_graph_save_invalid(const char* filepath, const HMR_CONTIG_INVALID_IDS& 
     return false;
 }
 
+
+bool hmr_graph_load_partition(const char *filepath, CONTIG_ID_VECTOR &contig_ids)
+{
+    FILE *group_id_file;
+    if (!bin_open(filepath, &group_id_file, "rb"))
+    {
+        time_error(-1, "Failed to load chromosome partition ids from file %s", filepath);
+        return false;
+    }
+    //Read the total groups.
+    size_t group_size;
+    fread(&group_size, sizeof(size_t), 1, group_id_file);
+    contig_ids.reserve(group_size);
+    //Read the contig id.
+    int32_t contig_id;
+    while(group_size--)
+    {
+        fread(&contig_id, sizeof(int32_t), 1, group_id_file);
+        contig_ids.push_back(contig_id);
+    }
+    return true;
+}
+
 bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& contig_ids)
 {
     FILE* group_id_file;
@@ -312,7 +335,7 @@ bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& cont
     //Write the total groups.
     size_t group_size = contig_ids.size();
     fwrite(&group_size, sizeof(size_t), 1, group_id_file);
-    //Write the allele group size.
+    //Write the group size of the partition.
     for (int32_t contig_id: contig_ids)
     {
         //Write the allele group size.

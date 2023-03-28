@@ -100,9 +100,19 @@ int dump_edge(int argc, char* argv[])
     return 0;
 }
 
+int dump_adj_matrix(int argc, char* argv[])
+{
+    //Prase the arguments.
+    parse_arguments(argc, argv);
+    //Load the group.
+    hmr_gra;
+    return 0;
+}
+
 std::map<std::string, DUMP_OP> dump_ops = {
     {"bam", DUMP_OP {"Dump the information of the bam file", &dump_bam}},
     {"edge", DUMP_OP {"Dump the information of the HMR edge file", &dump_edge}},
+    {"wmat", DUMP_OP {"Dump the matrix of the group like file", &dump_edge}},
 };
 
 void exit_command_help(int exitCode)
