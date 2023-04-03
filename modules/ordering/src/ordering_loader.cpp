@@ -16,15 +16,15 @@ void ordering_contig_size_proc(int32_t node_count, void *user)
     ORDERING_INFO *ordering_info = reinterpret_cast<ORDERING_INFO *>(user);
     //Create the buffer for the node.
     ordering_info->contigs.reserve(node_count);
-    ordering_info->contig_index = 0;
+    ordering_info->contig_size = 0;
 }
 
 void ordering_contig_node_proc(int32_t length, int32_t enzyme_count, int32_t name_size, char *name_buff, void *user)
 {
     ORDERING_INFO *ordering_info = reinterpret_cast<ORDERING_INFO *>(user);
     //Backup the contig index.
-    int32_t contig_index = ordering_info->contig_index;
-    ++ordering_info->contig_index;
+    int32_t contig_index = ordering_info->contig_size;
+    ++ordering_info->contig_size;
     if(!is_id_in_group(ordering_info->contig_group, contig_index))
     {
         return;
@@ -46,7 +46,7 @@ void ordering_edge_map_size_proc(uint64_t edge_sizes, void* user)
     HMR_UNUSED(edge_sizes)
     ORDERING_INFO *ordering_info = reinterpret_cast<ORDERING_INFO *>(user);
     //Reserve the edge info.
-    ordering_info->edges.reserve(ordering_info->contig_index);
+    ordering_info->edges.reserve(ordering_info->contig_size);
 }
 
 inline int32_t contig_enzyme_count(int32_t contig_id, const CONTIG_MAP &contigs)
@@ -61,17 +61,29 @@ inline int32_t contig_length(int32_t contig_id, const CONTIG_MAP &contigs)
     return iter == contigs.end() ? -1 : iter->second.length;
 }
 
-inline void insert_edge(int32_t a, int32_t b, double weight, ORDERING_WEIGHTS &map)
+inline void insert_edge(int32_t a, int32_t b, double weight, ORDERING_COUNTS &map)
 {
+    //Swap the b and a when necessary.
+    if(b < a)
+    {
+        int32_t temp = b;
+        b = a;
+        a = temp;
+    }
+    //Do the insertion.
     auto iter = map.find(a);
     if(iter == map.end())
     {
-        CONTIG_WEIGHTS b_weights;
+        CONTIG_COUNTS b_weights;
         b_weights.insert(std::make_pair(b, weight));
         map.insert(std::make_pair(a, b_weights));
     }
     else
     {
+        if(iter->second.find(b) != iter->second.end())
+        {
+            return;
+        }
         iter->second.insert(std::make_pair(b, weight));
     }
 }
@@ -87,7 +99,5 @@ void ordering_edge_map_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
         return;
     }
     //Insert the data to edge weights.
-    double weight = edge_info.pairs / contig_length(a_id, ordering_info->contigs) / contig_length(b_id, ordering_info->contigs);
-    insert_edge(a_id, b_id, weight, ordering_info->edges);
-    insert_edge(b_id, a_id, weight, ordering_info->edges);
+    insert_edge(a_id, b_id, edge_info.pairs, ordering_info->edges);
 }

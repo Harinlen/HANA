@@ -114,6 +114,7 @@ void partition_init_link_densities(const HMR_CONTIGS &contigs, const HMR_EDGE_MA
         }
         //Calculate the density.
         double start_density = link.second / factors[edge.pos.start];
+        //Build the contig link graph.
         insert_link_density(edge.pos.start, edge.pos.end, start_density, cluster_info.link_densities);
         insert_link_density(edge.pos.end, edge.pos.start, link.second / factors[edge.pos.end], cluster_info.link_densities);
         //Create the merge request.
