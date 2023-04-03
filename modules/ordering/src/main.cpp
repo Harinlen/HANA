@@ -10,6 +10,7 @@
 
 #include "args_ordering.hpp"
 #include "ordering_loader.hpp"
+#include "ordering_descent.hpp"
 
 extern HMR_ARGS opts;
 
@@ -37,7 +38,16 @@ int main(int argc, char *argv[])
     time_print("Loading edge information from %s", opts.edge);
     hmr_graph_load_edge(opts.edge, ordering_edge_map_size_proc, ordering_edge_map_data_proc, &order_info);
     time_print("Group edges are loaded.");
+    //Create the initial ordering.
+    time_print("Generating initial genomes...");
+    order_info.contig_size = static_cast<int32_t>(order_info.contig_group.size());
+    order_info.init_genome = ordering_init(order_info);
     //Start to reduce the gradient of the groups.
-
+    for(int32_t phase=1; phase<3; ++phase)
+    {
+        //Optimize the current phase.
+        ordering_optimize_phase(phase, opts.npop, opts.ngen, opts.mutapb, order_info);
+        break;
+    }
     return 0;
 }

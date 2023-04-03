@@ -9,6 +9,7 @@ SOURCES += \
     ../shared/hmr_args.cpp \
     ../shared/hmr_bin_file.cpp \
     ../shared/hmr_contig_graph.cpp \
+    ../shared/hmr_ga.cpp \
     ../shared/hmr_path.cpp \
     ../shared/hmr_ui.cpp \
     src/args_ordering.cpp \
@@ -22,7 +23,9 @@ HEADERS += \
     ../shared/hmr_bin_file.hpp \
     ../shared/hmr_contig_graph.hpp \
     ../shared/hmr_contig_graph_type.hpp \
+    ../shared/hmr_ga.hpp \
     ../shared/hmr_global.hpp \
+    ../shared/hmr_parallel.hpp \
     ../shared/hmr_path.hpp \
     ../shared/hmr_ui.hpp \
     src/args_ordering.hpp \
