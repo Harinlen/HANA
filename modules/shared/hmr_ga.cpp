@@ -63,7 +63,7 @@ GA_GENOME *hmr_ga_genome_create(GA_GENOME_OP &ops, std::mt19937_64 &rng, void *u
 void hmr_ga_genome_free(GA_GENOME *genome, GA_GENOME_OP &ops)
 {
     --genome->ref;
-    if(genome->ref)
+    if(genome->ref > 0)
     {
         return;
     }
@@ -216,6 +216,10 @@ void hmr_ga_individuals_evaluate(GA_INDIVIDUALS &indis, GA_GENOME_OP &ops)
 {
     for(uint64_t i=0; i<indis.size; ++i)
     {
+        if(!indis.d[i].evaluated)
+        {
+            printf("%llu update fitness\n", i);
+        }
         hmr_ga_individual_evaluate(indis.d[i], ops);
     }
 }
@@ -228,6 +232,7 @@ void hmr_ga_individuals_mutate(GA_INDIVIDUALS &indis, GA_GENOME_OP &ops,
     {
         if(rate(rng) < mut_rate)
         {
+            printf("%llu mutate\n", i);
             hmr_ga_individual_mutate(indis.d[i], ops, rng);
         }
     }
@@ -307,10 +312,10 @@ GA_INDIVIDUALS hmr_ga_model_genearte_offsprings(uint64_t n, GA_POPULATION &pop, 
         //Select 2 parents.
         GA_INDIVIDUALS selected = selector.ops.apply(2, pop.individuals, pop.rng, ops, selector.selector_user);
         // Generate 2 offsprings from the parents
-        if(rate(pop.rng) < cross_rate)
-        {
-            hmr_ga_individual_crossover(selected.d[0], selected.d[1], ops, pop.rng);
-        }
+//        if(rate(pop.rng) < cross_rate)
+//        {
+//            hmr_ga_individual_crossover(selected.d[0], selected.d[1], ops, pop.rng);
+//        }
         if(i < n)
         {
             hmr_ga_individual_ref(offsprings.d[i], selected.d[0]);
@@ -375,6 +380,7 @@ void hmr_ga_hof_update(GA_HOF &hof, GA_INDIVIDUALS &indis, std::mt19937_64 &rng,
     {
         GA_INDIVIDUAL &indi = indis.d[i];
         // Find if and where the Individual should fit in the hall of fame
+        printf("best_fit=%lf\t", indi.fitness);
         if(hof.queue.empty() || indi.fitness < hof.queue.top().fitness)
         {
             //Update the best record first.

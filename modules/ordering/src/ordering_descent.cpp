@@ -172,6 +172,23 @@ void ordering_genome_mutate(void *user, std::mt19937_64 &rng)
     }
 }
 
+int32_t ordering_edge(int32_t a, int32_t b, ORDERING_COUNTS *edges)
+{
+    if(b < a)
+    {
+        int32_t temp = b;
+        b = a;
+        a = temp;
+    }
+    auto a_iter = edges->find(a);
+    if(a_iter == edges->end())
+    {
+        return 0;
+    }
+    auto b_iter = a_iter->second.find(b);
+    return b_iter == a_iter->second.end() ? 0 : b_iter->second;
+}
+
 double ordering_genome_evaluate(void *user)
 {
     ORDERING_GENOME *genome = reinterpret_cast<ORDERING_GENOME *>(user);
@@ -186,13 +203,14 @@ double ordering_genome_evaluate(void *user)
     }
 
     double score = 0.0;
-    for(auto &a_iter: *(genome->edges))
+    for(uint64_t i=0; i<size; ++i)
     {
-        int32_t a = a_iter.first;
+        int32_t a = genome->tigs[i].idx;
         double a_mid = mid.find(a)->second;
-        for(auto &b_iter: a_iter.second)
+        for(uint64_t j=i+1; j<size; ++j)
         {
-            int32_t b = b_iter.first, n_links = b_iter.second;
+            int32_t b = genome->tigs[j].idx,
+                    n_links = ordering_edge(a, b, genome->edges);
             double dist = mid.find(b)->second - a_mid;
             // This serves two purposes:
             // 1. Break earlier reduces the amount of calculation
@@ -206,6 +224,7 @@ double ordering_genome_evaluate(void *user)
             score -= double(n_links) / dist;
         }
     }
+    printf("%lf\n", score);
     return score;
 }
 
@@ -224,21 +243,36 @@ GA_GENOME_OP ordering_genome_op =
     ordering_genome_crossover
 };
 
-ORDERING_TIG *ordering_init(ORDERING_INFO &info, int32_t *order)
+ORDERING_TIG *ordering_init(ORDERING_INFO &info, bool shuffle, const int32_t *order)
 {
     ORDERING_TIG *tigs = static_cast<ORDERING_TIG *>(malloc(sizeof(ORDERING_TIG) * info.contig_size));
     if(order)
     {
-        time_error(-1, "Not implemented for ordered init.");
+        for(int32_t i=0; i<info.contig_size; ++i)
+        {
+            tigs[i].idx = order[i];
+            auto iter = info.contigs.find(tigs[i].idx);
+            if(iter == info.contigs.end())
+            {
+                time_error(-1, "Failed to find contig %d", tigs[i].idx);
+            }
+            tigs[i].size = iter->second.length;
+        }
     }
     else
     {
         int32_t i = 0;
-        for(auto iter: info.contigs)
+        for(auto &iter: info.contigs)
         {
             tigs[i].idx = iter.first;
             tigs[i].size = iter.second.length;
             ++i;
+        }
+        if(shuffle)
+        {
+            uint64_t seed = std::mt19937_64((std::random_device()()))();
+            std::shuffle(tigs, tigs+info.contig_size,
+                         std::default_random_engine(static_cast<unsigned>(seed)));
         }
     }
     return tigs;
@@ -255,14 +289,15 @@ void ordering_callback(GA &ga)
     ORDERING_INFO *info = reinterpret_cast<ORDERING_INFO *>(ga.config.user);
     uint64_t gen = ga.generations;
     double current_best = -ga.hall_of_fame.best.fitness;
+    printf("%llu\t%lf\t%lf\n", gen, current_best, info->best);
     if(current_best > info->best)
     {
         info->best = current_best;
         info->updated = gen;
     }
-    if(gen % 500 == 0)
+    if(gen == 100)
     {
-        printf("%llu\t%lf\t%lf\n", gen, current_best, info->best);
+        exit(1);
     }
 }
 
@@ -291,7 +326,7 @@ void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
     std::mt19937_64 ordering_rng((std::random_device()()));
     ga_config.rng.user = &ordering_rng;
     ga_config.rng.get_int63 = ordering_optimize_get_int63;
-    info.best = std::numeric_limits<double>::min();
+    info.best = -std::numeric_limits<double>::max();
     info.updated = 0;
     //Additional bookkeeping per generation
     ga_config.callback = ordering_callback;
