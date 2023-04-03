@@ -27,7 +27,6 @@ int main(int argc, char* argv[])
     //Print the execution configuration.
     time_print("Execution configuration:");
     time_print("\tNumber of Partitions: %d", opts.groups);
-    time_print("\tThreads: %d", opts.threads);
     time_print("\tAllele mode: %s", opts.allele_table ? "Yes" : "No");
     //Load the contig node information.
     HMR_CONTIGS contigs;
