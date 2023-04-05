@@ -10,9 +10,8 @@ HMR_ARG_PARSER args_parser = {
     { {"-n", "--nodes"}, "NDOES", "HMR contig node file (.hmr_contig)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
     { {"-e", "--edge"}, "EDGE", "HMR edge file (.hmr_edge)", LAMBDA_PARSE_ARG { opts.edge = arg[0];}},
     { {"-g", "--group"}, "GROUP", "Number of homologous chromosomes groups", LAMBDA_PARSE_ARG {opts.groups = atoi(arg[0]); }},
-    { {"-r", "--re"}, "MIN_RE", "Number of minimum REs.", LAMBDA_PARSE_ARG {opts.min_re = atoi(arg[0]); }},
-    { {"--max-link-density"}, "MAX_LINK_DENSITY", "Density threshold before marking contig as repetitive.", LAMBDA_PARSE_ARG {opts.max_link_density = atoi(arg[0]); }},
+    { {"-r", "--re"}, "MIN_RE", "Number of minimum REs (default: 25)", LAMBDA_PARSE_ARG {opts.min_re = atoi(arg[0]); }},
+    { {"--max-link-density"}, "MAX_LINK_DENSITY", "Density threshold of repetitive contig (default: 2)", LAMBDA_PARSE_ARG {opts.max_link_density = atoi(arg[0]); }},
     { {"-x", "--table"}, "ALLELE_TABLE", "Allele contig table (.hmr_allele/.ctg.table)", LAMBDA_PARSE_ARG {opts.allele_table = arg[0]; }},
     { {"-o", "--output"}, "OUTPUT", "Output partition file (.hmr_partition)", LAMBDA_PARSE_ARG {opts.output = arg[0]; }},
-    { {"-t", "--threads"}, "THREAS", "Number of threads (default: 1)", LAMBDA_PARSE_ARG { opts.threads = atoi(arg[0]); }},
 };
