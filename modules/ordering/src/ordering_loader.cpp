@@ -1,4 +1,7 @@
+#include <algorithm>
 #include <cassert>
+#include <cstdlib>
+#include <cstring>
 
 #include "hmr_global.hpp"
 

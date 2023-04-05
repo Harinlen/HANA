@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
     if (!path_can_read(opts.edge)) { time_error(-1, "Cannot read HMR graph edge weight file %s", opts.edge); }
     if (!opts.group) { help_exit(-1, "Missing HMR contig group file path."); }
     if (!path_can_read(opts.group)) { time_error(-1, "Cannot read HMR contig group file %s", opts.group); }
+    if (!opts.output) { help_exit(-1, "Missing HMR sequence output file path."); }
     time_print("Execution configuration:");
     time_print("\tMaximum idle generations: %d", opts.ngen);
     time_print("\tMutation probability: %lf", opts.mutapb);
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
     for(int32_t phase=1; phase<3; ++phase)
     {
         //Optimize the current phase.
-        time_print("Starting phase %d...", phase+1);
+        time_print("Starting phase %d...", phase);
         ordering_init(order_info, order_info.contig_group);
         ordering_optimize_phase(phase, opts.npop, opts.ngen, opts.mutapb, order_info, rng, opts.threads);
     }
