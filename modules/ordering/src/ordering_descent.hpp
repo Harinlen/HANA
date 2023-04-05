@@ -3,8 +3,6 @@
 
 #include "ordering_type.hpp"
 
-struct ORDERING_TIG;
-
 ORDERING_TIG *ordering_init(ORDERING_INFO &info, bool shuffle, const int32_t *order = NULL);
 
 void ordering_optimize_phase(int32_t phase,
