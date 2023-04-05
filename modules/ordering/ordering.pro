@@ -23,6 +23,7 @@ HEADERS += \
     ../shared/hmr_contig_graph.hpp \
     ../shared/hmr_contig_graph_type.hpp \
     ../shared/hmr_global.hpp \
+    ../shared/hmr_parallel.hpp \
     ../shared/hmr_path.hpp \
     ../shared/hmr_ui.hpp \
     src/args_ordering.hpp \

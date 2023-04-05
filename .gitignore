@@ -5,3 +5,4 @@ CMakeLists.txt.user
 .vs
 *.vcxproj.user
 *.pro.user
+x64

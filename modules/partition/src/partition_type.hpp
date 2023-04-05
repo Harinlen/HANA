@@ -1,6 +1,8 @@
 #ifndef PARTITION_TYPE_H
 #define PARTITION_TYPE_H
 
+#include <cstdlib>
+
 #include "hmr_contig_graph_type.hpp"
 
 typedef struct MERGE_OP
