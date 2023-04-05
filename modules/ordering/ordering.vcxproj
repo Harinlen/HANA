@@ -82,6 +82,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>E:\Documents\PHD\AGIS\hmr_repo\modules\shared;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -157,7 +158,6 @@
     <ClInclude Include="..\shared\hmr_contig_graph.hpp" />
     <ClInclude Include="..\shared\hmr_contig_graph_type.hpp" />
     <ClInclude Include="..\shared\hmr_global.hpp" />
-    <ClInclude Include="..\shared\hmr_parallel.hpp" />
     <ClInclude Include="..\shared\hmr_path.hpp" />
     <ClInclude Include="..\shared\hmr_ui.hpp" />
     <ClInclude Include="src\args_ordering.hpp" />

@@ -3,9 +3,11 @@
 #include <limits>
 #include <random>
 #include <cmath>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "hmr_global.hpp"
-#include "hmr_parallel.hpp"
 #include "hmr_ui.hpp"
 
 #include "ordering_descent.hpp"
@@ -26,39 +28,24 @@ typedef struct ORDERING_EVA
     bool evaluated;
 } ORDERING_EVA;
 
-ORDERING_TIG *ordering_init(ORDERING_INFO &info, bool shuffle, const int32_t *order)
+ORDERING_TIG* ordering_init_alloc(int32_t contig_size)
 {
-    ORDERING_TIG *tigs = static_cast<ORDERING_TIG *>(malloc(sizeof(ORDERING_TIG) * info.contig_size));
-    if(order)
+    return static_cast<ORDERING_TIG*>(malloc(sizeof(ORDERING_TIG) * contig_size));
+}
+
+void ordering_init(ORDERING_INFO &info, const CONTIG_ID_VECTOR& start_order)
+{
+    ORDERING_TIG* tigs = info.init_genome;
+    for(int32_t i=0; i<info.contig_size; ++i)
     {
-        for(int32_t i=0; i<info.contig_size; ++i)
+        tigs[i].index = start_order[i];
+        auto iter = info.contigs.find(tigs[i].index);
+        if(iter == info.contigs.end())
         {
-            tigs[i].index = order[i];
-            auto iter = info.contigs.find(tigs[i].index);
-            if(iter == info.contigs.end())
-            {
-                time_error(-1, "Failed to find contig %d", tigs[i].index);
-            }
-            tigs[i].length = iter->second.length;
+            time_error(-1, "Failed to find contig %d", tigs[i].index);
         }
+        tigs[i].length = iter->second.length;
     }
-    else
-    {
-        int32_t i = 0;
-        for(auto &iter: info.contigs)
-        {
-            tigs[i].index = iter.first;
-            tigs[i].length = iter.second.length;
-            ++i;
-        }
-        if(shuffle)
-        {
-            uint64_t seed = std::mt19937_64((std::random_device()()))();
-            std::shuffle(tigs, tigs+info.contig_size,
-                         std::default_random_engine(static_cast<unsigned>(seed)));
-        }
-    }
-    return tigs;
 }
 
 typedef struct ORDERING_EA
@@ -78,6 +65,12 @@ typedef struct ORDERING_EA
     bool reversed;
     ORDERING_EVA *current_eva, *target_eva;
     ORDERING_TIG *target_buffer;
+
+    int32_t mutate_complete_counter;
+    std::mutex mutate_mutex, mutate_complete_mutex, complete_thread_lock;
+    std::condition_variable mutate_cv, mutate_complete_cv;
+    uint64_t* mutate_seeds;
+    bool *mutate_flag, mutate_exit;
 } ORDERING_EA;
 
 int32_t ordering_ea_get_links(int32_t a, int32_t b, const ORDERING_COUNTS &edges)
@@ -100,6 +93,11 @@ int32_t ordering_ea_get_links(int32_t a, int32_t b, const ORDERING_COUNTS &edges
 double ordering_evaluate_sequence(ORDERING_TIG *seq, int32_t seq_length, const ORDERING_COUNTS &edges)
 {
     double *mid = static_cast<double *>(malloc(sizeof(double) * seq_length));
+    if (!mid)
+    {
+        time_error(-1, "No enough memory for evaluating sequences.");
+    }
+    assert(mid);
     double cum_sum = 0.0;
     for(int32_t i=0; i<seq_length; ++i)
     {
@@ -138,7 +136,6 @@ void ordering_evaluate_calc(ORDERING_EVA *eva, int32_t seqs_count, int32_t seq_l
                             const ORDERING_COUNTS &edges)
 {
     //Loop and check all the evaluation state.
-    ;
     for(int32_t i=0; i<seqs_count; ++i)
     {
         if(!eva[i].evaluated)
@@ -162,7 +159,7 @@ typedef std::vector<int32_t> ORDERING_IDS;
 ORDERING_IDS ordering_select_contestants(int32_t n, ORDERING_IDS &candidates, std::mt19937_64 &rng)
 {
     std::unordered_set<int32_t> chosen;
-    std::uniform_int_distribution<> dist(0, candidates.size() - 1);
+    std::uniform_int_distribution<> dist(0, static_cast<int32_t>(candidates.size()) - 1);
     for(int32_t i=0; i<n; ++i)
     {
         int32_t j = dist(rng);
@@ -368,15 +365,73 @@ void ordering_update_best(ORDERING_EA &ea, size_t seq_bytes)
     }
 }
 
-void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
-                             ORDERING_INFO &info)
+void ordering_mutate_worker(const int32_t idx, const int32_t threads, const ORDERING_INFO *info, ORDERING_EA *ea)
 {
+    int32_t start_idx, end_idx;
+    {
+        int32_t step = (ea->num_of_seqs + threads - 1) / threads;
+        start_idx = idx * step;
+        end_idx = start_idx + step;
+        if (end_idx > ea->num_of_seqs)
+        {
+            end_idx = ea->num_of_seqs;
+        }
+    }
+    std::unique_lock<std::mutex> lock(ea->mutate_mutex);
+    std::mt19937_64 rng(ea->mutate_seeds[idx]);
+    std::uniform_real_distribution<double> rate(0.0, 1.0);
+    const double mut_rate = ea->mut_rate;
+    const int32_t seq_length = info->contig_size;
+    const ORDERING_COUNTS& edges = info->edges;
+    while (true)
+    {
+        //Wait for the start signal.
+        ea->mutate_cv.wait(lock, [&] { return ea->mutate_flag[idx]; });
+        if (ea->mutate_exit)
+        {
+            //Just exit the thread.
+            break;
+        }
+        //Loop in thread range and handle the data.
+        ORDERING_EVA* eva = ea->target_eva;
+        for (int32_t i = start_idx; i < end_idx; ++i)
+        {
+            if (rate(rng) < mut_rate)
+            {
+                ordering_mutate(eva[i], seq_length, rng);
+            }
+            if (!eva[i].evaluated)
+            {
+                eva[i].score = ordering_evaluate_sequence(eva[i].seq, seq_length, edges);
+                eva[i].evaluated = true;
+            }
+        }
+        //Disable the available flag.
+        ea->mutate_flag[idx] = false;
+        //Process the data based on the threads.
+        {
+            ea->complete_thread_lock.lock();
+            ++ea->mutate_complete_counter;
+            ea->complete_thread_lock.unlock();
+        }
+        if (ea->mutate_complete_counter == threads)
+        {
+            ea->mutate_complete_cv.notify_one();
+        }
+    }
+}
+
+void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
+                             ORDERING_INFO &info, std::mt19937_64 &rng, int threads)
+{
+    //Configure the threads.
+    bool is_single = threads < 2;
     ORDERING_EA ea;
     ea.num_of_seqs = npop;
     ea.mut_rate = mutapb;
     ea.generations = 0;
-    ea.rng = std::mt19937_64(std::random_device()());
-    //Allocate memory for the buffer.
+    ea.rng = rng;
+    //Allocate memory for the buffer (double buffer).
     size_t seq_bytes = sizeof(ORDERING_TIG) * info.contig_size,
             buffer_bytes = ea.num_of_seqs * seq_bytes;
     ea.buffer1 = static_cast<ORDERING_TIG *>(malloc(buffer_bytes));
@@ -384,13 +439,33 @@ void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
     size_t eva_bytes = sizeof(ORDERING_EVA) * ea.num_of_seqs;
     ea.eva1 = static_cast<ORDERING_EVA *>(malloc(eva_bytes));
     ea.eva2 = static_cast<ORDERING_EVA *>(malloc(eva_bytes));
+    if (!ea.buffer1 || !ea.buffer2 || !ea.eva1 || !ea.eva2)
+    {
+        time_error(-1, "Failed to allocate memory for EA algorithm.");
+    }
+    //Prepare the threads when necessary.
+    std::thread* mutate_workers = NULL;
+    if (!is_single)
+    {
+        mutate_workers = new std::thread[threads];
+        ea.mutate_flag = new bool[threads];
+        ea.mutate_seeds = new uint64_t[threads];
+        ea.mutate_exit = false;
+        for (int32_t i = 0; i < threads; ++i)
+        {
+            ea.mutate_seeds[i] = ea.rng();
+            ea.mutate_flag[i] = false;
+            mutate_workers[i] = std::thread(ordering_mutate_worker, i, threads, &info, &ea);
+        }
+    }
     //Activate sequence 1.
     ea.reversed = false;
     ea.current_eva = ea.eva1;
     ea.target_eva = ea.eva2;
     ea.target_buffer = ea.buffer2;
     std::uniform_real_distribution<double> rate(0.0, 1.0);
-    //Assign the sequence pointer.
+    //Initial the evaluation seqs to current buffer.
+    uint32_t gen_counter = 0;
     for(int32_t i=0; i<ea.num_of_seqs; ++i)
     {
         //Set and initialize the buffer1.
@@ -404,13 +479,16 @@ void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
     //Evaluate the current buffer.
     ordering_evaluate_calc(ea.current_eva, ea.num_of_seqs, info.contig_size, info.edges);
     ordering_evaluate_sort(ea.current_eva, ea.num_of_seqs);
-    //Initialize the best records.
+    //Initialize the best record.
     ea.best_score = -std::numeric_limits<double>::max();
     ea.best_gen = 0;
     ea.best_seq = static_cast<ORDERING_TIG *>(malloc(seq_bytes));
+    assert(ea.best_seq);
     //Update the best result.
     ordering_update_best(ea, seq_bytes);
+    time_print("EA Phase %d, Generation %-12dscore: %.5lf", phase, ea.generations, ea.best_score);
     //Run EA algorithm with the configuration above.
+    std::unique_lock<std::mutex> mutate_complete_lock(ea.mutate_complete_mutex);
     for(int32_t g=0; g<1000000; ++g)
     {
         //Convergence criteria.
@@ -429,22 +507,44 @@ void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
         }
         //Generate the offspring at target eva matrix.
         ordering_generate_offsprings(ea.current_eva, ea.target_eva, ea.num_of_seqs, seq_bytes, gen_rng);
-        if(ea.mut_rate > 0)
+        //Mutate the candidates.
+        if (is_single)
         {
-            for(int32_t i=0; i<ea.num_of_seqs; ++i)
+            for (int32_t i = 0; i < ea.num_of_seqs; ++i)
             {
-                if(rate(gen_rng) < ea.mut_rate)
+                if (rate(gen_rng) < ea.mut_rate)
                 {
                     ordering_mutate(ea.target_eva[i], info.contig_size, gen_rng);
                 }
             }
+            ordering_evaluate_calc(ea.target_eva, ea.num_of_seqs, info.contig_size, info.edges);
         }
-        //Evaluate the target buffer.
-        ordering_evaluate_calc(ea.target_eva, ea.num_of_seqs, info.contig_size, info.edges);
+        else
+        {
+            //Reset the thread start flag.
+            for (int32_t i = 0; i < threads; ++i)
+            {
+                ea.mutate_flag[i] = true;
+            }
+            ea.mutate_complete_counter = 0;
+            //Start the working threads.
+            ea.mutate_cv.notify_all();
+            //Wait for everyone complete working.
+            ea.mutate_complete_cv.wait(mutate_complete_lock);
+        }
+        //Sort the target buffer.
         ordering_evaluate_sort(ea.target_eva, ea.num_of_seqs);
         //Update the best result.
         ordering_update_best(ea, seq_bytes);
-        printf("g=%d\t%lf\t%lf\t%lf\t%lf\n", g, ea.target_eva[0].score, ea.target_eva[1].score, ea.target_eva[2].score, ea.best_score);
+        if (gen_counter == 499)
+        {
+            time_print("EA Phase %d, Generation %-12dscore: %.5lf", phase, ea.generations, ea.best_score);
+            gen_counter = 0;
+        }
+        else
+        {
+            ++gen_counter;
+        }
         //Swap the target and current.
         if(ea.reversed)
         {
@@ -461,8 +561,35 @@ void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
             ea.target_buffer = ea.buffer1;
         }
     }
+    //Recover the memory of the multi-threads.
+    if (!is_single)
+    {
+        ea.mutate_exit = true;
+        //Request everyone to exit.
+        for (int32_t i = 0; i < threads; ++i)
+        {
+            ea.mutate_flag[i] = true;
+        }
+        ea.mutate_cv.notify_all();
+        //Request to kill all the threads.
+        for (int32_t i = 0; i < threads; ++i)
+        {
+            mutate_workers[i].join();
+        }
+        delete[] ea.mutate_seeds;
+        delete[] ea.mutate_flag;
+        delete[] mutate_workers;
+    }
+    //Recovery the buffer memory.
+    free(ea.buffer1);
+    free(ea.buffer2);
+    free(ea.eva1);
+    free(ea.eva2);
+    //Extract the sequence from the best history result.
     for(int32_t i=0; i<info.contig_size; ++i)
     {
-        printf("%d\t%s\n", ea.best_seq[i].index, info.contigs.find(ea.best_seq[i].index)->second.name);
+        info.contig_group[i] = ea.best_seq[i].index;
     }
+    //Free the best sequence memory.
+    free(ea.best_seq);
 }
