@@ -1,5 +1,5 @@
-#ifndef ARGS_PARTITION_H
-#define ARGS_PARTITION_H
+#ifndef ARGS_ORDERING_H
+#define ARGS_ORDERING_H
 
 #include <cstdlib>
 #include <cstdint>
@@ -15,4 +15,4 @@ typedef struct HMR_ARGS
     uint64_t seed = 0;
 } HMR_ARGS;
 
-#endif // ARGS_PARTITION_H
+#endif // ARGS_ORDERING_H

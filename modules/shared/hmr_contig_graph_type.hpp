@@ -54,4 +54,12 @@ typedef std::vector<int32_t> CONTIG_ID_VECTOR;
 typedef std::vector<CONTIG_ID_VECTOR> CONTIG_ID_VECTORS;
 typedef std::vector<CONTIG_ID_VECTOR *> CONTIG_ID_CLUSTERS;
 
+typedef struct HMR_DIRECTED_CONTIG
+{
+    int32_t id;
+    uint8_t direction;
+} HMR_DIRECTED_CONTIG;
+
+typedef std::vector<HMR_DIRECTED_CONTIG> CHROMOSOME_CONTIGS;
+
 #endif // HMR_CONTIG_GRAPH_TYPE_H

@@ -31,6 +31,8 @@ void hmr_graph_restore_contig_data(const char* filepath, HMR_CONTIGS* contigs);
 bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& contigs, bool binary_format = true);
 
 std::string hmr_graph_path_reads(const char* prefix);
+typedef void (*READS_PROC)(const HMR_MAPPING *, void *);
+void hmr_graph_load_reads(const char* filepath, size_t buf_unit_size, READS_PROC proc, void *user);
 
 std::string hmr_graph_path_edge(const char* prefix);
 typedef void (*EDGE_SIZE_PROC)(uint64_t, void*);
@@ -45,5 +47,7 @@ bool hmr_graph_save_invalid(const char* filepath, const HMR_CONTIG_INVALID_IDS& 
 
 bool hmr_graph_load_partition(const char* filepath, CONTIG_ID_VECTOR& contig_ids);
 bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& contig_ids);
+
+bool hmr_graph_save_chromosome(const char *filepath, const CHROMOSOME_CONTIGS &chromosome_contigs);
 
 #endif // HMR_CONTIG_GRAPH_H

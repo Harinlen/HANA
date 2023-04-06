@@ -23,7 +23,10 @@ void hmr_graph_load_contigs_bin(const char* filepath, CONTIG_SIZE_PROC size_pars
     //Read the file of the size.
     int32_t contig_size;
     fread(&contig_size, sizeof(int32_t), 1, contig_file);
-    size_parser(contig_size, user);
+    if(size_parser)
+    {
+        size_parser(contig_size, user);
+    }
     //Now parsing the parser.
     int32_t length, enzyme_count, name_size, name_buff_size = 0;
     char* name_buff = NULL;
@@ -157,6 +160,33 @@ bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& contigs, bo
 std::string hmr_graph_path_reads(const char* prefix)
 {
     return std::string(prefix) + ".hmr_reads";
+}
+
+void hmr_graph_load_reads(const char *filepath, size_t buf_unit_size, READS_PROC proc, void *user)
+{
+    //Load the reads file.
+    FILE *reads_file;
+    if (!bin_open(filepath, &reads_file, "rb"))
+    {
+        time_error(-1, "Failed to open reads file %s", filepath);
+    }
+    //Read the reads size information.
+    const size_t bytes_unit = sizeof(HMR_MAPPING), buffer_size = buf_unit_size * bytes_unit;
+    char *buffer = static_cast<char *>(malloc(buffer_size));
+    size_t bytes_readed;
+    while((bytes_readed = fread(buffer, 1, buffer_size, reads_file)) > 0)
+    {
+        size_t bytes_offset = 0;
+        char *mapping_buffer = buffer, *mapping_end = buffer + bytes_readed;
+        while(mapping_buffer < mapping_end)
+        {
+            proc(reinterpret_cast<HMR_MAPPING *>(mapping_buffer + bytes_offset), user);
+            mapping_buffer += bytes_unit;
+        }
+    }
+    free(buffer);
+    //Close the reads file.
+    fclose(reads_file);
 }
 
 std::string hmr_graph_path_edge(const char* prefix)
@@ -321,6 +351,7 @@ bool hmr_graph_load_partition(const char *filepath, CONTIG_ID_VECTOR &contig_ids
         fread(&contig_id, sizeof(int32_t), 1, group_id_file);
         contig_ids.push_back(contig_id);
     }
+    fclose(group_id_file);
     return true;
 }
 
@@ -329,7 +360,7 @@ bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& cont
     FILE* group_id_file;
     if (!bin_open(filepath, &group_id_file, "wb"))
     {
-        time_error(-1, "Failed to save chromosome partition ids to file %s", filepath);
+        time_error(-1, "Failed to save contig ids to file %s", filepath);
         return false;
     }
     //Write the total groups.
@@ -341,5 +372,27 @@ bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& cont
         //Write the allele group size.
         fwrite(&contig_id, sizeof(int32_t), 1, group_id_file);
     }
+    fclose(group_id_file);
+    return true;
+}
+
+bool hmr_graph_save_chromosome(const char *filepath, const CHROMOSOME_CONTIGS &chromosome_contigs)
+{
+    FILE *chromosome_file;
+    if (!bin_open(filepath, &chromosome_file, "wb"))
+    {
+        time_error(-1, "Failed to save chromosome contig info to file %s", filepath);
+        return false;
+    }
+    //Write the contig size.
+    size_t contig_size = chromosome_contigs.size();
+    fwrite(&contig_size, sizeof(size_t), 1, chromosome_file);
+    //Write the chromosome contig info.
+    for(size_t i=0; i<contig_size; ++i)
+    {
+        //Construct the structure.
+        fwrite(&chromosome_contigs[i], sizeof(HMR_DIRECTED_CONTIG), 1, chromosome_file);
+    }
+    fclose(chromosome_file);
     return true;
 }

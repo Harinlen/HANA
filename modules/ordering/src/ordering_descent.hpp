@@ -1,6 +1,8 @@
 #ifndef ORDERING_DESCENT_H
 #define ORDERING_DESCENT_H
 
+#include <random>
+
 #include "ordering_type.hpp"
 
 ORDERING_TIG* ordering_init_alloc(int32_t contig_size);

@@ -71,5 +71,6 @@ int main(int argc, char *argv[])
     //Dump the data to output file.
     time_print("Writing ordered contig indices to %s", opts.output);
     hmr_graph_save_partition(opts.output, order_info.contig_group);
+    time_print("Ordering complete.");
     return 0;
 }
