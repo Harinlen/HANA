@@ -3,6 +3,8 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
+TARGET = hana_ordering
+
 INCLUDEPATH = ../shared
 
 SOURCES += \

@@ -48,6 +48,8 @@ bool hmr_graph_save_invalid(const char* filepath, const HMR_CONTIG_INVALID_IDS& 
 bool hmr_graph_load_partition(const char* filepath, CONTIG_ID_VECTOR& contig_ids);
 bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& contig_ids);
 
+typedef void (*CHROMOSOME_PROC)(const HMR_DIRECTED_CONTIG &, void*);
+bool hmr_graph_load_chromosome(const char *filepath, CHROMOSOME_PROC proc, void *user);
 bool hmr_graph_save_chromosome(const char *filepath, const CHROMOSOME_CONTIGS &chromosome_contigs);
 
 #endif // HMR_CONTIG_GRAPH_H

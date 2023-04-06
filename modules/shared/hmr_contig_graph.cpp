@@ -376,6 +376,28 @@ bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& cont
     return true;
 }
 
+bool hmr_graph_load_chromosome(const char *filepath, CHROMOSOME_PROC proc, void *user)
+{
+    FILE *chromosome_file;
+    if (!bin_open(filepath, &chromosome_file, "rb"))
+    {
+        time_error(-1, "Failed to open chromosome contig info file %s", filepath);
+        return false;
+    }
+    //Read the contig size.
+    size_t contig_size;
+    fread(&contig_size, sizeof(size_t), 1, chromosome_file);
+    //Read the chromosome contig info.
+    HMR_DIRECTED_CONTIG contig_buffer;
+    for(size_t i=0; i<contig_size; ++i)
+    {
+        fread(&contig_buffer, sizeof(HMR_DIRECTED_CONTIG), 1, chromosome_file);
+        proc(contig_buffer, user);
+    }
+    fclose(chromosome_file);
+    return true;
+}
+
 bool hmr_graph_save_chromosome(const char *filepath, const CHROMOSOME_CONTIGS &chromosome_contigs)
 {
     FILE *chromosome_file;
