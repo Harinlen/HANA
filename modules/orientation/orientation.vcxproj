@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{b64880c5-bcae-4096-8300-a1ff92220f94}</ProjectGuid>
-    <RootNamespace>partition</RootNamespace>
+    <ProjectGuid>{683bece8-bbbd-4c41-a53a-39dd06d57fe3}</ProjectGuid>
+    <RootNamespace>orientation</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -141,20 +141,22 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\shared\hmr_args.cpp" />
+    <ClCompile Include="..\shared\hmr_bin_file.cpp" />
     <ClCompile Include="..\shared\hmr_contig_graph.cpp" />
     <ClCompile Include="..\shared\hmr_path.cpp" />
     <ClCompile Include="..\shared\hmr_ui.cpp" />
-    <ClCompile Include="src\args_partition.cpp" />
+    <ClCompile Include="src\args_orientation.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\hmr_args.hpp" />
     <ClInclude Include="..\shared\hmr_args_types.hpp" />
+    <ClInclude Include="..\shared\hmr_bin_file.hpp" />
     <ClInclude Include="..\shared\hmr_contig_graph.hpp" />
     <ClInclude Include="..\shared\hmr_contig_graph_type.hpp" />
     <ClInclude Include="..\shared\hmr_path.hpp" />
     <ClInclude Include="..\shared\hmr_ui.hpp" />
-    <ClInclude Include="src\args_partition.hpp" />
+    <ClInclude Include="src\args_orientation.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

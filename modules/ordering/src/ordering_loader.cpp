@@ -91,16 +91,16 @@ inline void insert_edge(int32_t a, int32_t b, double weight, ORDERING_COUNTS &ma
     }
 }
 
-void ordering_edge_map_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
+void ordering_edge_map_data_proc(const HMR_EDGE_INFO* edge_info, void* user)
 {
     ORDERING_INFO *ordering_info = reinterpret_cast<ORDERING_INFO *>(user);
     //Append the edge information.
-    int32_t a_id = edge_info.edge.pos.start, b_id = edge_info.edge.pos.end;
+    int32_t a_id = edge_info->start, b_id = edge_info->end;
     if(!is_id_in_group(ordering_info->contig_group, a_id) ||
             !is_id_in_group(ordering_info->contig_group, b_id))
     {
         return;
     }
     //Insert the data to edge weights.
-    insert_edge(a_id, b_id, edge_info.pairs, ordering_info->edges);
+    insert_edge(a_id, b_id, edge_info->pairs, ordering_info->edges);
 }

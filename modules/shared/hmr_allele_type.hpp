@@ -3,10 +3,6 @@
 
 #include "hmr_contig_graph_type.hpp"
 
-typedef struct
-{
-    HMR_CONTIG* source;
-    std::vector<HMR_CONTIG*> conflicts;
-} ALLELE_RECORD;
+typedef std::unordered_map<int32_t, CONTIG_ID_SET> HMR_ALLELE_TABLE;
 
 #endif // HMR_ALLELE_TYPE_H

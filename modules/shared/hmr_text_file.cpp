@@ -11,7 +11,7 @@
 
 #include "hmr_text_file.hpp"
 
-#define TEXT_LINE_BUFFER_SIZE    (33554432) // 32MB
+constexpr auto TEXT_LINE_BUFFER_SIZE = (33554432); // 32MB
 
 ssize_t text_getline_file(char** line, size_t* line_size, TEXT_LINE_BUF* line_buf, void* file_handle)
 {
@@ -231,6 +231,11 @@ bool text_open_read_line(const char* filepath, TEXT_LINE_HANDLE* handle)
         handle->parser = text_getline_file;
         //Allocate the line reading buffer.
         buf.buf = static_cast<char*>(malloc(TEXT_LINE_BUFFER_SIZE));
+        if (!buf.buf)
+        {
+            time_error(-1, "Failed to allocate memory for text file line buffer.");
+        }
+        assert(buf.buf);
         buf.buf_size = 0;
         buf.reserved = TEXT_LINE_BUFFER_SIZE;
         return true;

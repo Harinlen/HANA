@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include "hmr_bin_file.hpp"
+#include "hmr_global.hpp"
 #include "hmr_ui.hpp"
 #include "hmr_path.hpp"
 
@@ -12,7 +13,7 @@ std::string hmr_graph_path_contig(const char* prefix)
     return std::string(prefix) + ".hmr_contig";
 }
 
-void hmr_graph_load_contigs_bin(const char* filepath, CONTIG_SIZE_PROC size_parser, CONTIG_PROC parser, void* user)
+void hmr_graph_load_contigs(const char* filepath, CONTIG_SIZE_PROC size_parser, CONTIG_PROC parser, void* user)
 {
     //Load the file path.
     FILE* contig_file;
@@ -63,24 +64,6 @@ void hmr_graph_load_contigs_bin(const char* filepath, CONTIG_SIZE_PROC size_pars
     if (name_buff)
     {
         free(name_buff);
-    }
-}
-
-void hmr_graph_load_contigs_text(const char* filepath, CONTIG_SIZE_PROC size_parser, CONTIG_PROC parser, void* user)
-{
-    //Load the file path.
-}
-
-void hmr_graph_load_contigs(const char* filepath, CONTIG_SIZE_PROC size_parser, CONTIG_PROC parser, void* user, bool binary_format)
-{
-    if (binary_format)
-    {
-        hmr_graph_load_contigs_bin(filepath, size_parser, parser, user);
-    }
-    else
-    {
-        //hmr_graph_load_contigs_text(filepath, size_parser, parser, user);
-        time_error(-1, "Not supporting loading text format.");
     }
 }
 
@@ -171,8 +154,10 @@ void hmr_graph_load_reads(const char *filepath, size_t buf_unit_size, READS_PROC
         time_error(-1, "Failed to open reads file %s", filepath);
     }
     //Read the reads size information.
+    assert(buf_unit_size > 0);
     const size_t bytes_unit = sizeof(HMR_MAPPING), buffer_size = buf_unit_size * bytes_unit;
     char *buffer = static_cast<char *>(malloc(buffer_size));
+    assert(buffer);
     size_t bytes_readed;
     while((bytes_readed = fread(buffer, 1, buffer_size, reads_file)) > 0)
     {
@@ -194,7 +179,7 @@ std::string hmr_graph_path_edge(const char* prefix)
     return std::string(prefix) + ".hmr_edge";
 }
 
-void hmr_graph_load_edge_bin(const char* filepath, EDGE_SIZE_PROC size_parser, EDGE_PROC parser, void* user)
+void hmr_graph_load_edge(const char* filepath, EDGE_SIZE_PROC size_parser, EDGE_PROC parser, void* user, size_t buffer_size)
 {
     //Load the file path.
     FILE* edge_file;
@@ -206,73 +191,30 @@ void hmr_graph_load_edge_bin(const char* filepath, EDGE_SIZE_PROC size_parser, E
     uint64_t edge_sizes = 0;
     fread(&edge_sizes, sizeof(uint64_t), 1, edge_file);
     size_parser(edge_sizes, user);
-    HMR_EDGE_INFO edge_info;
-    for (uint64_t i = 0; i < edge_sizes; ++i)
+    buffer_size = hMin(buffer_size, edge_sizes);
+    char* edge_buffer = static_cast<char*>(malloc(buffer_size * sizeof(HMR_EDGE_INFO)));
+    if (!edge_buffer)
     {
-        //Read the edge counter structure.
-        fread(&edge_info.edge.pos.start, sizeof(int32_t), 1, edge_file);
-        fread(&edge_info.edge.pos.end, sizeof(int32_t), 1, edge_file);
-        fread(&edge_info.pairs, sizeof(int32_t), 1, edge_file);
-        fread(&edge_info.weights, sizeof(double), 1, edge_file);
-        //Call the parser.
-        parser(edge_info, user);
+        time_error(-1, "Failed to create edge info buffer.");
     }
+    assert(edge_buffer);
+    size_t buffer_readed = fread(edge_buffer, sizeof(HMR_EDGE_INFO), buffer_size, edge_file);
+    while (buffer_readed > 0)
+    {
+        char* edge_info = edge_buffer;
+        for (size_t i = 0; i < buffer_readed; ++i)
+        {
+            parser(reinterpret_cast<HMR_EDGE_INFO*>(edge_info), user);
+            edge_info += sizeof(HMR_EDGE_INFO);
+        }
+        buffer_readed = fread(edge_buffer, sizeof(HMR_EDGE_INFO), buffer_size, edge_file);
+    }
+    free(edge_buffer);
     //Close the file.
     fclose(edge_file);
 }
 
-void hmr_graph_load_edge(const char* filepath, EDGE_SIZE_PROC size_parser, EDGE_PROC parser, void* user, bool binary_format)
-{
-    if (binary_format)
-    {
-        hmr_graph_load_edge_bin(filepath, size_parser, parser, user);
-    }
-    else
-    {
-        //hmr_graph_load_contigs_text(filepath, size_parser, parser, user);
-        time_error(-1, "Not supporting loading text format.");
-    }
-}
-
-void hmr_graph_restore_edges_size_proc(uint64_t edge_sizes, void* user)
-{
-    HMR_EDGE_COUNTERS *edges = reinterpret_cast<HMR_EDGE_COUNTERS *>(user);
-    //Reserve the items.
-    edges->reserve(edge_sizes);
-}
-
-void hmr_graph_restore_edges_data_proc(const HMR_EDGE_INFO& edge_data, void* user)
-{
-    HMR_EDGE_COUNTERS *edges = reinterpret_cast<HMR_EDGE_COUNTERS *>(user);
-    //Append the data.
-    edges->push_back(edge_data);
-}
-
-void hmr_graph_restore_edges(const char *filepath, HMR_EDGE_COUNTERS *edges)
-{
-    hmr_graph_load_edge(filepath, hmr_graph_restore_edges_size_proc, hmr_graph_restore_edges_data_proc, edges);
-}
-
-void hmr_graph_restore_edge_map_size_proc(uint64_t edge_sizes, void* user)
-{
-    HMR_EDGE_MAP* edge_map = reinterpret_cast<HMR_EDGE_MAP*>(user);
-    //Reserve the edge info.
-    edge_map->reserve(edge_sizes);
-}
-
-void hmr_graph_restore_edge_map_data_proc(const HMR_EDGE_INFO& edge_info, void* user)
-{
-    HMR_EDGE_MAP* edge_map = reinterpret_cast<HMR_EDGE_MAP*>(user);
-    //Append the edge information.
-    edge_map->insert(std::make_pair(edge_info.edge.data, edge_info.weights));
-}
-
-void hmr_graph_restore_edge_map(const char* filepath, HMR_EDGE_MAP *edge_map)
-{
-    hmr_graph_load_edge(filepath, hmr_graph_restore_edge_map_size_proc, hmr_graph_restore_edge_map_data_proc, edge_map);
-}
-
-bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges)
+bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges, size_t buffer_size)
 {
     //Open the contig output file to write the data.
     FILE* edge_file;
@@ -284,13 +226,7 @@ bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges)
     //Write the edge information.
     uint64_t edge_sizes = static_cast<uint64_t>(edges.size());
     fwrite(&edge_sizes, sizeof(uint64_t), 1, edge_file);
-    for (const HMR_EDGE_INFO& edge_info : edges)
-    {
-        fwrite(&edge_info.edge.pos.start, sizeof(int32_t), 1, edge_file);
-        fwrite(&edge_info.edge.pos.end, sizeof(int32_t), 1, edge_file);
-        fwrite(&edge_info.pairs, sizeof(int32_t), 1, edge_file);
-        fwrite(&edge_info.weights, sizeof(double), 1, edge_file);
-    }
+    fwrite(edges.data(), sizeof(HMR_EDGE_INFO), edge_sizes, edge_file);
     fclose(edge_file);
     return true;
 }

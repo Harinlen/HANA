@@ -32,4 +32,3 @@ hana /path/to/directory
 ### Configuration file mode
 
 ## Supported restriction sites
-

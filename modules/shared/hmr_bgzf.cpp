@@ -54,7 +54,7 @@ typedef struct BGZF_UNPACK_PARAM
     int32_t *worker_completed;
 } BGZF_UNPACK_PARAM;
 
-void hmr_bgzf_decompress(std::mutex &mutex, std::mutex& complete_mutex, std::condition_variable &cv, std::condition_variable &join_cv, BGZF_UNPACK_PARAM *param)
+void hmr_bgzf_decompress(int32_t thread_count, std::mutex &mutex, std::mutex& complete_mutex, std::condition_variable &cv, std::condition_variable &join_cv, BGZF_UNPACK_PARAM *param)
 {
     //The thread id and decompress pool would never changed.
     const int id = param->id;
@@ -98,7 +98,10 @@ void hmr_bgzf_decompress(std::mutex &mutex, std::mutex& complete_mutex, std::con
             std::unique_lock<std::mutex> counter_lock(complete_mutex);
             ++(*param->worker_completed);
             //Notify the join cv.
-            join_cv.notify_one();
+            if (*param->worker_completed == thread_count)
+            {
+                join_cv.notify_all();
+            }
         }
     }
 }
@@ -125,6 +128,7 @@ void hmr_bgzf_parse(FILE* bgzf_file, HMR_BIN_QUEUE* queue, int threads)
     {
         time_error(-1, "Failed to create BGZF buffer, not enough memory");
     }
+    assert(bgzf_buf);
     //Create the working pool.
     int32_t worker_completed = 0;
     std::mutex worker_complete_mutex;
@@ -151,9 +155,8 @@ void hmr_bgzf_parse(FILE* bgzf_file, HMR_BIN_QUEUE* queue, int threads)
     for (int32_t i = 0; i < threads; ++i)
     {
         worker_params[i] = BGZF_UNPACK_PARAM { i , false, buf_size, bgzf_buf, NULL, &worker_completed };
-        workers[i] = std::thread(hmr_bgzf_decompress, std::ref(worker_mutex[i]), std::ref(worker_complete_mutex), std::ref(worker_cv[i]), std::ref(join_cv), & worker_params[i]);
+        workers[i] = std::thread(hmr_bgzf_decompress, threads, std::ref(worker_mutex[i]), std::ref(worker_complete_mutex), std::ref(worker_cv[i]), std::ref(join_cv), & worker_params[i]);
     }
-    //hmr::thread_pool<BGZF_UNPACK_PARAM> unpacker(hmr_bgzf_decompress, threads, threads);
     //Read while to the end of the file.
     while (!queue->finish && fread(&header_buf, sizeof(BGZF_HEADER), 1, bgzf_file) > 0)
     {
@@ -208,7 +211,7 @@ void hmr_bgzf_parse(FILE* bgzf_file, HMR_BIN_QUEUE* queue, int threads)
             //Wait for all the threads complete.
             {
                 std::unique_lock<std::mutex> join_lock(join_mutex);
-                join_cv.wait(join_lock, [&] { return worker_completed == threads; });
+                join_cv.wait(join_lock);
             }
             //Push the data to the parsing queue.
             hmr_bin_queue_push(queue, bgzf_raw, block_offset);

@@ -28,13 +28,14 @@ typedef union HMR_EDGE
 
 typedef struct HMR_EDGE_INFO
 {
-    HMR_EDGE edge;
+    int32_t start;
+    int32_t end;
     int32_t pairs;
+    int32_t padding;
     double weights;
 } HMR_EDGE_INFO;
 
 typedef std::vector<HMR_EDGE_INFO> HMR_EDGE_COUNTERS;
-typedef std::unordered_map<uint64_t, double> HMR_EDGE_MAP;
 
 typedef struct HMR_MAPPING
 {
