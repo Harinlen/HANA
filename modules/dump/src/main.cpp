@@ -81,38 +81,20 @@ void dump_edge_size(uint64_t size, void* user) {}
 void dump_edge_proc(const HMR_EDGE_INFO& edge_info, void* user)
 {
     DUMP_EDGE_USER* edge_user = reinterpret_cast<DUMP_EDGE_USER*>(user);
-    fprintf(edge_user->text_out, "%-14d  %-14d %-14d %lf\n", edge_info.edge.pos.start, edge_info.edge.pos.end, edge_info.pairs, edge_info.weights);
+    fprintf(edge_user->text_out, "%-14d  %-14d %-14d %lf\n", edge_info.start, edge_info.end, edge_info.pairs, edge_info.weights);
 }
 
-int dump_edge(int argc, char* argv[])
-{
-    //Prase the arguments.
-    parse_arguments(argc, argv);
-    //Loop and print the data into text file.
-    time_print("Dumping edge info from %s", opts.edge_file);
-    DUMP_EDGE_USER user {NULL};
-    if (!text_open_write(opts.output, &user.text_out))
-    {
-        time_error(-1, "Failed to open output file to dump the data.");
-    }
-    //Read the edge info.
-    hmr_graph_load_edge(opts.edge_file, dump_edge_size, dump_edge_proc, &user);
-    return 0;
-}
 
 int dump_adj_matrix(int argc, char* argv[])
 {
     //Prase the arguments.
     parse_arguments(argc, argv);
     //Load the group.
-    hmr_gra;
     return 0;
 }
 
 std::map<std::string, DUMP_OP> dump_ops = {
     {"bam", DUMP_OP {"Dump the information of the bam file", &dump_bam}},
-    {"edge", DUMP_OP {"Dump the information of the HMR edge file", &dump_edge}},
-    {"wmat", DUMP_OP {"Dump the matrix of the group like file", &dump_edge}},
 };
 
 void exit_command_help(int exitCode)

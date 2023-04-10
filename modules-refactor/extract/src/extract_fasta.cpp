@@ -83,7 +83,8 @@ void extract_fasta_search_proc(int32_t, char* name, size_t name_size, char* seq,
     EXTRACT_FASTA_USER *node_user = reinterpret_cast<EXTRACT_FASTA_USER*>(user);
     //Create the node information.
     int32_t contig_id = static_cast<int32_t>(node_user->nodes.size());
-    node_user->nodes.push_back(HMR_CONTIG{ static_cast<int32_t>(seq_size), -1, static_cast<int32_t>(name_size), name });
+    node_user->nodes.push_back(HMR_NODE{ static_cast<int32_t>(seq_size), -1 });
+    node_user->node_names.push_back(HMR_NODE_NAME{ static_cast<int32_t>(name_size), name });
     //Start to search the enzyme.
     node_user->pool.push_task(ENZYME_RANGE_SEARCH
         {

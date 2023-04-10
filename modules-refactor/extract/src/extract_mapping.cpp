@@ -200,9 +200,10 @@ typedef struct BAM_EXTRACTOR
     int32_t* bam_id_map = NULL;
     int32_t bam_contig_id = 0;
     uint8_t mapq = 0;
+    uint16_t check_flag = 0;
 } BAM_EXTRACTOR;
 
-void bam_extractor_init(BAM_EXTRACTOR& extractor, CONTIG_INDEX_MAP *contig_index_map, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint8_t mapq, FILE *reads_file, int32_t thread_buffer_size, int32_t num_of_worker)
+void bam_extractor_init(BAM_EXTRACTOR& extractor, CONTIG_INDEX_MAP *contig_index_map, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint8_t mapq, FILE *reads_file, int32_t thread_buffer_size, int32_t num_of_worker, uint16_t check_flag)
 {
     size_t buffer_size = static_cast<size_t>(thread_buffer_size * num_of_worker);
     mapping_worker_sync_init(extractor.sync, reads_file, num_of_worker);
@@ -215,6 +216,7 @@ void bam_extractor_init(BAM_EXTRACTOR& extractor, CONTIG_INDEX_MAP *contig_index
     extractor.bam_id_map = NULL;
     extractor.bam_contig_id = 0;
     extractor.mapq = mapq;
+    extractor.check_flag = check_flag;
 }
 
 inline int32_t bam_extractor_get_contig_id(const BAM_EXTRACTOR& extractor, int32_t ref_id)
@@ -228,6 +230,9 @@ void bam_extractor_free(BAM_EXTRACTOR& extractor)
     bam_mapping_buffer_free(extractor.buf_1);
     mapping_worker_sync_free(extractor.sync);
 }
+
+FILE* extract_dump;
+std::vector<std::string> names;
 
 void extract_mapping_bam_worker(int32_t id, MAPPING_WORKER &worker, BAM_EXTRACTOR &extractor)
 {
@@ -249,15 +254,16 @@ void extract_mapping_bam_worker(int32_t id, MAPPING_WORKER &worker, BAM_EXTRACTO
             //Check whether the mapping info is valid, then check whether the position is in range.
             int32_t ref_index = bam_extractor_get_contig_id(extractor, mapping_info.refID),
                 next_ref_index = bam_extractor_get_contig_id(extractor, mapping_info.next_refID);
-            if (ref_index == -1 || next_ref_index == -1 //Reference index invalid detection.
-                || mapping_info.mapq == 255 //Map quality is invalid.
+            if (ref_index == -1 || next_ref_index == -1 //Reference index cannot be find in the mapping index detection.
+                || mapping_info.mapq == 0 || mapping_info.mapq == 255 //Map quality is invalid.
                 || mapping_info.mapq < extractor.mapq //Check whether the mapping reaches the minimum quality
-                || (mapping_info.flag & 3852) // Filtered source code.
+                || ((extractor.check_flag & CHECK_FLAG_FLAG) && (mapping_info.flag & 3852)) // Filtered flag from AllHiC.
                 || (ref_index == next_ref_index) // We don't care about the pairs on the same contigs.
-                || (!position_in_range(mapping_info.pos, (*extractor.contig_enzyme_ranges)[ref_index]))) // Or the position is not in the position.
+                || ((extractor.check_flag & CHECK_FLAG_RANGE) && (!position_in_range(mapping_info.pos, (*extractor.contig_enzyme_ranges)[ref_index])))) // Or the position is not in the position.
             {
                 continue;
             }
+            fprintf(extract_dump, "%s\t%d\t%s\t%d\n", names[ref_index].c_str(), mapping_info.pos, names[next_ref_index].c_str(), mapping_info.next_pos);
             //Save the mapping info to the buffer.
             if (mapping_buffer_is_full(worker.valid_buffer))
             {
@@ -281,6 +287,14 @@ void extract_bam_num_of_contigs(uint32_t num_of_contigs, void* user)
     {
         time_error(-1, "No enough memory for BAM contig id map.");
     }
+    //Initial all the index mapping to -1.
+    for (uint32_t i = 0; i < num_of_contigs; ++i)
+    {
+        bam_extractor->bam_id_map[i] = -1;
+    }
+
+    names.resize(num_of_contigs);
+    fopen_s(&extract_dump, "E:\\Downloads\\sampleDataForALLHiC\\Sspon-hind3\\hana_extract_dump.txt", "w");
 }
 
 void extract_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
@@ -288,6 +302,7 @@ void extract_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
     BAM_EXTRACTOR* bam_extractor = static_cast<BAM_EXTRACTOR*>(user);
     //Set the contig.
     bam_extractor->bam_id_map[bam_extractor->bam_contig_id] = extract_contig_index_get(*bam_extractor->contig_index_map, std::string(name, name_length));
+    names[bam_extractor->bam_contig_id] = std::string(name, name_length);
     ++bam_extractor->bam_contig_id;
 }
 
@@ -324,14 +339,14 @@ void extract_bam_read_align(size_t block_id, const BAM_BLOCK_HEADER* bam_block, 
 
 // ------ BAM Workers End ------
 
-void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FILE* reads_file, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint8_t mapq, int32_t thread_buffer_size, int32_t threads)
+void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FILE* reads_file, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint16_t check_flag, uint8_t mapq, int32_t thread_buffer_size, int32_t threads)
 {
     if (path_ends_with(filepath, ".bam"))
     {
         int32_t num_of_worker = (threads + 1) >> 1;
         //Initialize the extractor.
         BAM_EXTRACTOR bam_extractor;
-        bam_extractor_init(bam_extractor, index_map, contig_enzyme_ranges, mapq, reads_file, thread_buffer_size, num_of_worker);
+        bam_extractor_init(bam_extractor, index_map, contig_enzyme_ranges, mapq, reads_file, thread_buffer_size, num_of_worker, check_flag);
         //Prepare the worker buffer.
         MAPPING_WORKER* worker_buffer = new MAPPING_WORKER[num_of_worker];
         //Start BAM filter workers.
@@ -373,6 +388,7 @@ void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FIL
             mapping_buffer_dump(worker_buffer[i].valid_buffer, reads_file);
             worker_free(worker_buffer[i]);
         }
+        fclose(extract_dump);
         bam_extractor_free(bam_extractor);
         delete[] workers;
         delete[] worker_buffer;

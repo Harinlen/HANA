@@ -40,73 +40,64 @@ int main(int argc, char* argv[])
     time_print("Execution configuration:");
     time_print("\tBAM minimum map quality: %d", opts.mapq);
     time_print("\tRestriction enzyme: %s", opts.enzyme);
-    time_print("\tMinimum restriction enzyme count: %d", opts.min_enzymes);
     time_print("\tValid enzyme distance of Hi-C pairs: %dx2", opts.range);
     time_print("\tMapping file(s): %zu", opts.mappings.size());
     time_print("\tThreads: %d", opts.threads);
     time_print("\tFASTA search buffer records size / thread: %d", opts.fasta_pool);
     time_print("\tMapping filter buffer records size / thread: %dK", opts.mapping_pool);
     opts.mapping_pool <<= 10;
+    //Construct the check flag.
+    uint16_t check_flag = 0xFFFF;
+    time_print("\tChecking flag settings...");
+    if (opts.skip_flag) { check_flag &= ~CHECK_FLAG_FLAG; time_print("\t\tSkip FLAG checking"); }
+    if (opts.skip_range) { check_flag &= ~CHECK_FLAG_RANGE; time_print("\t\tSkip range checking"); }
     //Load the FASTA and find the enzyme ranges in sequences.
-    HMR_CONTIGS contigs;
-    HMR_CONTIG_ID_VEC invalid_ids;
+    HMR_CONTIGS nodes;
     CONTIG_ENZYME_RANGES contig_enzyme_ranges;
     {
         //Prepare the enzyme for searching.
         ENZYME_SEARCH_PARAM search_param;
         extract_enzyme_search_start(opts.enzyme, static_cast<int32_t>(strlen(opts.enzyme)), search_param);
         CONTIG_CHAIN node_chain;
+        CONTIG_NAME_CHAIN node_name_chain;
         CONTIG_RANGE_RESULTS node_ranges;
         {
             //Start the enzyme search pool.
             RANGE_SEARCH_POOL pool(contig_range_search, opts.threads * opts.fasta_pool, opts.threads);
             //Construct the contig info build user.
-            EXTRACT_FASTA_USER node_build_user {search_param, node_chain, pool, opts.range, node_ranges };
+            EXTRACT_FASTA_USER node_build_user {search_param, node_chain, node_name_chain, pool, opts.range, node_ranges };
             time_print("Searching enzyme in %s", opts.fasta);
             hmr_fasta_read(opts.fasta, extract_fasta_search_proc, &node_build_user);
         }
         extract_enzyme_search_end(search_param);
         //Convert the node chain into node vector.
-        hMoveListToVector(node_chain, contigs);
+        hMoveListToVector(node_name_chain, nodes.names);
+        hMoveListToVector(node_chain, nodes.contigs);
         //Construct the enzyme range vector and find invalid ids.
         contig_enzyme_ranges.resize(node_ranges.size());
-        HMR_CONTIG_ID_CHAIN invalid_id_chain;
         while (!node_ranges.empty())
         {
             const auto& node_range = node_ranges.front();
             int32_t node_id = node_range.contig_index;
-            contigs[node_id].enzyme_count = node_range.counter;
-            if (node_range.counter < opts.min_enzymes)
-            {
-                invalid_id_chain.push_back(node_id);
-            }
+            //Increase 1 to avoid divided by zero.
+            nodes.contigs[node_id].enzyme_count = node_range.counter + 1;
             contig_enzyme_ranges[node_id] = node_range.ranges;
             node_ranges.pop_front();
         }
-        //Dump the invalid node ids to vector.
-        hMoveListToVector(invalid_id_chain, invalid_ids);
-        std::sort(invalid_ids.begin(), invalid_ids.end());
     }
-    time_print("%zu contig(s) are indexed, %zu invalid contig(s) detected.", contigs.size(), invalid_ids.size());
+    time_print("%zu contig(s) are indexed.", nodes.contigs.size());
     //Dump the node data to target file.
     {
         std::string path_contig = hmr_graph_path_contigs(opts.output);
         time_print("Save contig information to %s", path_contig.data());
-        hmr_graph_save_contigs(path_contig.data(), contigs);
-        time_print("Done");
-    }
-    if (!invalid_ids.empty())
-    {
-        std::string path_invalid = hmr_graph_path_contigs_invalid(opts.output);
-        time_print("Save invalid contig indices to %s", path_invalid.data());
-        hmr_graph_save_contig_ids(path_invalid.data(), invalid_ids);
+        hmr_graph_save_contigs(path_contig.data(), nodes);
         time_print("Done");
     }
     time_print("Constructing contig index map...");
     CONTIG_INDEX_MAP contig_index_map;
-    for (size_t i = 0; i < contigs.size(); ++i)
+    for (size_t i = 0; i < nodes.names.size(); ++i)
     {
-        contig_index_map.insert(std::make_pair(std::string(contigs[i].name, contigs[i].name_size), static_cast<int>(i)));
+        contig_index_map.insert(std::make_pair(std::string(nodes.names[i].name, nodes.names[i].name_size), static_cast<int>(i)));
     }
     time_print("Contig index map has been built.");
     if(opts.allele)
@@ -129,7 +120,7 @@ int main(int argc, char* argv[])
     for (char* mapping_path : opts.mappings)
     {
         time_print("Loading reads from %s", mapping_path);
-        extract_mapping_file(mapping_path, &contig_index_map, reads_file, &contig_enzyme_ranges, opts.mapq, opts.mapping_pool, opts.threads);
+        extract_mapping_file(mapping_path, &contig_index_map, reads_file, &contig_enzyme_ranges, check_flag, opts.mapq, opts.mapping_pool, opts.threads);
     }
     fclose(reads_file);
     time_print("Extract complete.");

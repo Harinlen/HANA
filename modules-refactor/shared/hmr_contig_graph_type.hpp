@@ -7,15 +7,27 @@
 #include <unordered_set>
 #include <unordered_map>
 
-typedef struct HMR_CONTIG
+typedef struct HMR_NODE
 {
     int32_t length;
     int32_t enzyme_count;
-    int32_t name_size;
-    char *name;
-} HMR_CONTIG;
+} HMR_NODE;
 
-typedef std::vector<HMR_CONTIG> HMR_CONTIGS;
+typedef std::vector<HMR_NODE> HMR_NODES;
+
+typedef struct HMR_NODE_NAME
+{
+    int32_t name_size;
+    char* name;
+} HMR_NODE_NAME;
+
+typedef std::vector<HMR_NODE_NAME> HMR_NODE_NAMES;
+
+typedef struct HMR_CONTIGS
+{
+    HMR_NODES contigs;
+    HMR_NODE_NAMES names;
+} HMR_CONTIGS;
 
 typedef union HMR_EDGE
 {

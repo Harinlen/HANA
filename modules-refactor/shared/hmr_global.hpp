@@ -34,7 +34,7 @@ inline void hMoveListToVector(std::list<T>& t_list, std::vector<T>& t_vector)
     t_vector.reserve(t_list.size());
     while (!t_list.empty())
     {
-        t_vector.push_back(t_list.front());
+        t_vector.emplace_back(t_list.front());
         t_list.pop_front();
     }
 }

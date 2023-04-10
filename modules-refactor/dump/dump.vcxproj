@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{99e2d64e-5d61-4c75-a800-186d55f63e7f}</ProjectGuid>
-    <RootNamespace>draft</RootNamespace>
+    <ProjectGuid>{c8bc06ef-475c-4308-bdff-8edb5d35d36a}</ProjectGuid>
+    <RootNamespace>dump</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -82,7 +82,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir)..\shared;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -141,28 +140,35 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\shared\hmr_algorithm.cpp" />
     <ClCompile Include="..\shared\hmr_args.cpp" />
+    <ClCompile Include="..\shared\hmr_bam.cpp" />
+    <ClCompile Include="..\shared\hmr_bgzf.cpp" />
     <ClCompile Include="..\shared\hmr_bin_file.cpp" />
+    <ClCompile Include="..\shared\hmr_bin_queue.cpp" />
     <ClCompile Include="..\shared\hmr_contig_graph.cpp" />
+    <ClCompile Include="..\shared\hmr_gz.cpp" />
     <ClCompile Include="..\shared\hmr_path.cpp" />
+    <ClCompile Include="..\shared\hmr_text_file.cpp" />
     <ClCompile Include="..\shared\hmr_ui.cpp" />
-    <ClCompile Include="src\args_draft.cpp" />
-    <ClCompile Include="src\draft_mappings.cpp" />
+    <ClCompile Include="src\args_dump.cpp" />
+    <ClCompile Include="src\dump_bam.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\shared\hmr_algorithm.hpp" />
     <ClInclude Include="..\shared\hmr_args.hpp" />
     <ClInclude Include="..\shared\hmr_args_types.hpp" />
+    <ClInclude Include="..\shared\hmr_bam.hpp" />
+    <ClInclude Include="..\shared\hmr_bgzf.hpp" />
     <ClInclude Include="..\shared\hmr_bin_file.hpp" />
+    <ClInclude Include="..\shared\hmr_bin_queue.hpp" />
     <ClInclude Include="..\shared\hmr_contig_graph.hpp" />
     <ClInclude Include="..\shared\hmr_contig_graph_type.hpp" />
+    <ClInclude Include="..\shared\hmr_gz.hpp" />
     <ClInclude Include="..\shared\hmr_path.hpp" />
+    <ClInclude Include="..\shared\hmr_text_file.hpp" />
     <ClInclude Include="..\shared\hmr_ui.hpp" />
-    <ClInclude Include="src\args_draft.hpp" />
-    <ClInclude Include="src\draft_mappings.hpp" />
-    <ClInclude Include="src\draft_mappings_type.hpp" />
+    <ClInclude Include="src\args_dump.hpp" />
+    <ClInclude Include="src\dump_bam.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

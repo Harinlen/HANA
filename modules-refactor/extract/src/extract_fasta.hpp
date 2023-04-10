@@ -41,12 +41,14 @@ typedef struct ENZYME_RANGE_SEARCH
 void contig_range_search(const ENZYME_RANGE_SEARCH& param);
 typedef hmr::thread_pool<ENZYME_RANGE_SEARCH> RANGE_SEARCH_POOL;
 
-typedef std::list<HMR_CONTIG> CONTIG_CHAIN;
+typedef std::list<HMR_NODE> CONTIG_CHAIN;
+typedef std::list<HMR_NODE_NAME> CONTIG_NAME_CHAIN;
 
 typedef struct EXTRACT_FASTA_USER
 {
     const ENZYME_SEARCH_PARAM& init_search_param;
     CONTIG_CHAIN& nodes;
+    CONTIG_NAME_CHAIN& node_names;
     RANGE_SEARCH_POOL& pool;
     const int32_t half_range;
     CONTIG_RANGE_RESULTS& results;

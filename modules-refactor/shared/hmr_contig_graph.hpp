@@ -26,16 +26,28 @@ inline HMR_EDGE hmr_graph_edge(int32_t edge_node_a, int32_t edge_node_b)
 std::string hmr_graph_path_contigs(const char* prefix);
 std::string hmr_graph_path_edge(const char* prefix);
 std::string hmr_graph_path_reads(const char* prefix);
+std::string hmr_graph_path_nodes_invalid(const char* contig_path);
 std::string hmr_graph_path_contigs_invalid(const char* prefix);
 std::string hmr_graph_path_allele_table(const char* prefix);
 
 /* Node operations */
-bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& contigs);
+void hmr_graph_load_contigs(const char* filepath, HMR_NODES& nodes, HMR_NODE_NAMES *names = NULL);
+bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& nodes);
 
 /* Node vector operations */
+void hmr_graph_load_contig_ids(const char* filepath, HMR_CONTIG_ID_VEC& contig_ids);
 bool hmr_graph_save_contig_ids(const char* filepath, const HMR_CONTIG_ID_VEC& contig_ids);
 
+/* Edge vector operations */
+bool hmr_graph_save_edges(const char* filepath, const HMR_EDGE_COUNTERS& edges);
+
 /* Allele table operations */
+bool hmr_graph_allele_conflict(const HMR_ALLELE_TABLE& allele_table, int32_t contig_id_a, int32_t contig_id_b);
+void hmr_graph_load_allele_table(const char* filepath, HMR_ALLELE_TABLE& allele_table);
 bool hmr_graph_save_allele_table(const char* filepath, const HMR_ALLELE_TABLE& allele_table);
+
+/* Paired-reads operations */
+typedef void (*HMR_READS_PROC)(HMR_MAPPING* mapping, int32_t buf_size, void *user);
+void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC proc, void *user);
 
 #endif // HMR_CONTIG_GRAPH_H
