@@ -27,8 +27,8 @@ int main(int argc, char* argv[])
     time_print("\tNumber of Partitions: %d", opts.groups);
     time_print("\tAllele mode: %s", opts.allele ? "Yes" : "No");
     time_print("\tEdge buffer: %dK", opts.read_buffer_size);
-    time_print("\tNon informative ratio: %d", opts.non_informative_ratio);
     opts.read_buffer_size <<= 10;
+    time_print("\tNon informative ratio: %d", opts.non_informative_ratio);
     //Load the contig node information.
     HMR_NODES nodes;
     time_print("Loading contig information from %s", opts.nodes);

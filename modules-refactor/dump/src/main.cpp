@@ -43,6 +43,7 @@ int dump_bam(int argc, char* argv[])
     if (argc < 2)
     {
         printf("Usage: bam [bam file path] -o [dump file path]\n");
+        exit(-1);
     }
     //Read the arguments.
     parse_arguments(argc - 1, argv + 1);
@@ -51,11 +52,13 @@ int dump_bam(int argc, char* argv[])
     if (!path_can_read(filepath))
     {
         printf("Failed to open bam file %s\n", filepath);
+        exit(-1);
     }
     FILE* dump_file;
     if (!text_open_write(opts.output, &dump_file))
     {
         time_error(-1, "Failed to open output file.");
+        exit(-1);
     }
     //Start parsing the bam file.
     DUMP_BAM user;
@@ -70,6 +73,7 @@ int dump_nodes(int argc, char* argv[])
     if (argc < 2)
     {
         printf("Usage: nodes [nodes file path] -o [dump file path]\n");
+        exit(-1);
     }
     //Read the arguments.
     parse_arguments(argc - 1, argv + 1);
@@ -78,11 +82,13 @@ int dump_nodes(int argc, char* argv[])
     if (!path_can_read(filepath))
     {
         printf("Failed to open nodes file %s\n", filepath);
+        exit(-1);
     }
     FILE* dump_file;
     if (!text_open_write(opts.output, &dump_file))
     {
         time_error(-1, "Failed to open output file.");
+        exit(-1);
     }
     //Start parsing the bam file.
     HMR_CONTIGS node_infos;
@@ -97,9 +103,54 @@ int dump_nodes(int argc, char* argv[])
     return 0;
 }
 
+int dump_group(int argc, char* argv[])
+{
+    if (argc < 2)
+    {
+        printf("Usage: group [group file path] -n [nodes file path] -o [dump file path]\n");
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open group file %s\n", filepath);
+        exit(-1);
+    }
+    if (!opts.nodes)
+    {
+        printf("Please provide the node file path.\n");
+        exit(-1);
+    }
+    if (!path_can_read(opts.nodes))
+    {
+        printf("Failed to open node file %s\n", opts.nodes);
+        exit(-1);
+    }
+    FILE* dump_file;
+    if (!text_open_write(opts.output, &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+    }
+    //Load the contigs.
+    HMR_CONTIGS node_infos;
+    hmr_graph_load_contigs(opts.nodes, node_infos.contigs, &node_infos.names);
+    //Load the group.
+    HMR_CONTIG_ID_VEC contig_ids;
+    hmr_graph_load_contig_ids(filepath, contig_ids);
+    fprintf(dump_file, "#\tContig\tLength\n");
+    for (int32_t contig_id : contig_ids)
+    {
+        fprintf(dump_file, "%d\t%s\t%d\n", contig_id, node_infos.names[contig_id].name, node_infos.contigs[contig_id].length);
+    }
+    fclose(dump_file);
+}
+
 std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
     {"bam", dump_bam},
     {"nodes", dump_nodes},
+    {"group", dump_group},
 };
 
 void help_exit(const char *s = NULL)

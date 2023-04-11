@@ -163,6 +163,11 @@ std::string hmr_graph_path_cluster_name(const char* prefix, const int32_t index,
     return std::string(prefix) + "_" + std::to_string(index) + "g" + std::to_string(total) + ".hmr_group";
 }
 
+std::string hmr_graph_path_chromo_name(const char* seq_path)
+{
+    return std::string(path_basename(seq_path) + ".hmr_chromo");
+}
+
 void hmr_graph_load_contigs(const char* filepath, HMR_NODES& nodes, HMR_NODE_NAMES* names)
 {
     //Load the file path.
@@ -332,4 +337,21 @@ bool hmr_graph_save_allele_table(const char* filepath, const HMR_ALLELE_TABLE& a
 void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC proc, void* user)
 {
     hmr_graph_load_with_buffer(filepath, buf_size, NULL, proc, user);
+}
+
+bool hmr_graph_save_chromosome(const char* filepath, const CHROMOSOME_CONTIGS& seq)
+{
+    FILE* chromosome_file;
+    if (!bin_open(filepath, &chromosome_file, "wb"))
+    {
+        time_error(-1, "Failed to save contig ids to file %s", filepath);
+        return false;
+    }
+    //Write the number of contig ids.
+    int32_t id_sizes = static_cast<int32_t>(seq.size());
+    fwrite(&id_sizes, sizeof(int32_t), 1, chromosome_file);
+    fwrite(seq.data(), sizeof(HMR_DIRECTED_CONTIG), id_sizes, chromosome_file);
+    fclose(chromosome_file);
+    return true;
+
 }

@@ -288,7 +288,6 @@ void partition_cluster(CLUSTER_INFO& cluster_info, int32_t num_of_groups)
         //Create merge operations to new group a.
         //Calculate the cluster to new cluster offset.
         const double group_a_size = static_cast<double>(group_a->size());
-        //printf("Added\n");
         for (size_t i = 0; i < cluster_info.cluster_size; ++i)
         {
             if (groups[i] == group_a)

@@ -62,4 +62,12 @@ typedef std::list<int32_t> HMR_CONTIG_ID_CHAIN;
 typedef std::unordered_map<int32_t, HMR_CONTIG_ID_VEC> HMR_ALLELE_TABLE;
 typedef std::unordered_map<int32_t, HMR_CONTIG_ID_SET> HMR_ALLELE_MAP;
 
+typedef struct HMR_DIRECTED_CONTIG
+{
+    int32_t id;
+    uint8_t direction;
+} HMR_DIRECTED_CONTIG;
+
+typedef std::vector<HMR_DIRECTED_CONTIG> CHROMOSOME_CONTIGS;
+
 #endif // HMR_CONTIG_GRAPH_TYPE_H

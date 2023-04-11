@@ -30,6 +30,7 @@ std::string hmr_graph_path_nodes_invalid(const char* contig_path);
 std::string hmr_graph_path_contigs_invalid(const char* prefix);
 std::string hmr_graph_path_allele_table(const char* prefix);
 std::string hmr_graph_path_cluster_name(const char* prefix, const int32_t index, const int32_t total);
+std::string hmr_graph_path_chromo_name(const char* seq_path);
 
 /* Node operations */
 void hmr_graph_load_contigs(const char* filepath, HMR_NODES& nodes, HMR_NODE_NAMES *names = NULL);
@@ -53,5 +54,8 @@ bool hmr_graph_save_allele_table(const char* filepath, const HMR_ALLELE_TABLE& a
 /* Paired-reads operations */
 typedef void (*HMR_READS_PROC)(HMR_MAPPING* mapping, int32_t buf_size, void *user);
 void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC proc, void *user);
+
+/* Chromosome sequence operations */
+bool hmr_graph_save_chromosome(const char* filepath, const CHROMOSOME_CONTIGS& seq);
 
 #endif // HMR_CONTIG_GRAPH_H

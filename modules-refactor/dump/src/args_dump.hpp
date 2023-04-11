@@ -8,6 +8,7 @@ typedef struct HMR_ARGS
 {
     const char* fasta = NULL;
     const char* output = NULL;
+    const char* nodes = NULL;
     const char* allele = NULL;
 } HMR_ARGS;
 
