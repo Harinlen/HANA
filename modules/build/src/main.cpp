@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -63,10 +64,9 @@ typedef struct CHROMOSOME_BUILD
     FILE *output_fasta;
 } CHROMOSOME_BUILD;
 
-void build_chromosome(const HMR_DIRECTED_CONTIG &contig_info, void *user)
+void build_chromosome(const HMR_DIRECTED_CONTIG &contig_info, CHROMOSOME_BUILD& builder)
 {
-    CHROMOSOME_BUILD *build_user = reinterpret_cast<CHROMOSOME_BUILD *>(user);
-    CONTIG_DICT &contigs = build_user->contigs;
+    CONTIG_DICT &contigs = builder.contigs;
     //Extract the sequence from the directory.
     auto seq_iter = contigs.find(contig_info.id);
     if(seq_iter == contigs.end())
@@ -80,6 +80,7 @@ void build_chromosome(const HMR_DIRECTED_CONTIG &contig_info, void *user)
         //It is reversed.
         char *rev_buffer = static_cast<char *>(malloc(contig.seq_size + 1)),
                 *seq = contig.seq;
+        assert(rev_buffer);
         size_t i_max = contig.seq_size;
         for(size_t i=0; i<i_max; ++i)
         {
@@ -89,13 +90,13 @@ void build_chromosome(const HMR_DIRECTED_CONTIG &contig_info, void *user)
                 rev_buffer[i] = reverse_bp[seq[rev_idx] - 'A'];
             }
         }
-        fwrite(rev_buffer, i_max, 1, build_user->output_fasta);
+        fwrite(rev_buffer, i_max, 1, builder.output_fasta);
         free(rev_buffer);
     }
     else
     {
         //Just simply write the sequence.
-        fwrite(contig.seq, contig.seq_size, 1, build_user->output_fasta);
+        fwrite(contig.seq, contig.seq_size, 1, builder.output_fasta);
     }
 }
 
@@ -109,13 +110,13 @@ int main(int argc, char *argv[])
     if (opts.chromosomes.empty()) { help_exit(-1, "Missing chromosome sequence file paths."); }
     if (!opts.output) { help_exit(-1, "Missing output fasta file path."); }
     //Load the FASTA and cache all the sequence.
-    CHROMOSOME_BUILD build_user;
+    CHROMOSOME_BUILD builder;
     time_print("Constructing FASTA sequence index from %s", opts.fasta);
-    hmr_fasta_read(opts.fasta, build_fasta_loader, &build_user.contigs);
-    time_print("%zu sequences loaded.", build_user.contigs.size());
+    hmr_fasta_read(opts.fasta, build_fasta_loader, &builder.contigs);
+    time_print("%zu sequences loaded.", builder.contigs.size());
     //Open the output file to write data.
     time_print("Opening output file %s", opts.output);
-    if(!text_open_write(opts.output, &build_user.output_fasta))
+    if(!text_open_write(opts.output, &builder.output_fasta))
     {
         time_error(-1, "Failed to open the output file.");
     }
@@ -124,11 +125,16 @@ int main(int argc, char *argv[])
         char *chromo_path = opts.chromosomes[i];
         time_print("Constructing chromosome %zu from %s", i+1, chromo_path);
         //Write the name of the chromosome.
-        fprintf(build_user.output_fasta, ">Chromosome_%zu\n", i+1);
-        hmr_graph_load_chromosome(chromo_path, build_chromosome, &build_user);
-        fprintf(build_user.output_fasta, "\n");
+        fprintf(builder.output_fasta, ">Chromosome_%zu\n", i+1);
+        CHROMOSOME_CONTIGS seq;
+        hmr_graph_load_chromosome(chromo_path, seq);
+        for (const auto &contig_info: seq)
+        {
+            build_chromosome(contig_info, builder);
+        }
+        fprintf(builder.output_fasta, "\n");
     }
-    fclose(build_user.output_fasta);
+    fclose(builder.output_fasta);
     time_print("Build complete.");
     return 0;
 }

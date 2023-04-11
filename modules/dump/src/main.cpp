@@ -1,140 +1,183 @@
-#include <cstdlib>
-#include <cstdio>
-#include <cassert>
-#include <map>
-#include <string>
+#include <unordered_map>
 
+#include "hmr_path.hpp"
+#include "hmr_text_file.hpp"
+#include "hmr_contig_graph.hpp"
 #include "hmr_args.hpp"
 #include "hmr_ui.hpp"
-#include "hmr_mapping.hpp"
-#include "hmr_bin_file.hpp"
-#include "hmr_contig_graph_type.hpp"
-#include "hmr_contig_graph.hpp"
-#include "hmr_text_file.hpp"
+#include "hmr_bam.hpp"
 
 #include "args_dump.hpp"
 
+typedef int (*DUMP_PROC)(int, char* []);
+
 extern HMR_ARGS opts;
 
-typedef int (*DumpOpeartion)(int, char*[]);
-
-typedef struct
-{
-    std::string description;
-    DumpOpeartion op;
-} DUMP_OP;
-
-constexpr int DUMP_RECORD_MAX = 1048575;
-constexpr size_t DUMP_BUFFER_SIZE = DUMP_RECORD_MAX * sizeof(HMR_MAPPING);
-
-typedef struct
+typedef struct DUMP_BAM
 {
     FILE* dump_file;
-    int buffer_offset;
-    HMR_MAPPING* buffer;
-} BAM_DUMP_USER;
+    std::string* names;
+    int32_t i;
+} DUMP_BAM;
 
-void dump_bam_mapping_draft_n_contig(uint32_t n_ref, void* user) {}
-void dump_bam_mapping_draft_contig(uint32_t name_length, char* name, uint32_t length, void* user) {}
-void dump_bam_mapping_draft_read_align(size_t id, const MAPPING_INFO& mapping_info, void* user)
+void dump_bam_n_contig(uint32_t num_of_contigs, void* user)
 {
-    //Convert the user to const user.
-    BAM_DUMP_USER* dump_user = reinterpret_cast<BAM_DUMP_USER*>(user);
-    //Write the index, pos and quality to the dump file.
-    if (dump_user->buffer_offset == DUMP_RECORD_MAX)
-    {
-        fwrite(dump_user->buffer, DUMP_BUFFER_SIZE, 1, dump_user->dump_file);
-        dump_user->buffer_offset = 0;
-    }
-    //Write the text line buffer.
-    dump_user->buffer[dump_user->buffer_offset++] = HMR_MAPPING{ mapping_info.refID, mapping_info.pos, mapping_info.next_refID, mapping_info.next_pos };
+    DUMP_BAM* d = static_cast<DUMP_BAM*>(user);
+    d->names = new std::string[num_of_contigs];
+    d->i = 0;
+}
+void dump_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
+{
+    DUMP_BAM* d = static_cast<DUMP_BAM*>(user);
+    d->names[d->i] = std::string(name, name_length);
+    ++d->i;
+}
+void dump_bam_read_align(size_t block_id, const BAM_BLOCK_HEADER* bam_block, void* user)
+{
+    DUMP_BAM* d = static_cast<DUMP_BAM*>(user);
+    fprintf(d->dump_file, "%s\t%d\t%s\t%d\n", d->names[bam_block->refID].c_str(), bam_block->pos, d->names[bam_block->next_refID].c_str(), bam_block->next_pos);
 }
 
 int dump_bam(int argc, char* argv[])
 {
-    //Prase the arguments.
-    parse_arguments(argc, argv);
-    //Loop in all the bam file and dump to output directory.
-    time_print("Dumping BAM file %s", opts.bam_file);
-    BAM_DUMP_USER dump_user {NULL, 0, NULL};
-    dump_user.buffer = static_cast<HMR_MAPPING*>(malloc(DUMP_BUFFER_SIZE));
-    assert(dump_user.buffer);
-    if (!bin_open(opts.output, &dump_user.dump_file, "w"))
+    if (argc < 2)
     {
-        time_error(-1, "Failed to open the output file %s", opts.output);
+        printf("Usage: bam [bam file path] -o [dump file path]\n");
+        exit(-1);
     }
-    hmr_mapping_read(opts.bam_file, MAPPING_PROC{ dump_bam_mapping_draft_n_contig, dump_bam_mapping_draft_contig, dump_bam_mapping_draft_read_align }, &dump_user, opts.threads);
-    if (dump_user.buffer_offset)
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
     {
-        fwrite(dump_user.buffer, dump_user.buffer_offset * sizeof(HMR_MAPPING), 1, dump_user.dump_file);
+        printf("Failed to open bam file %s\n", filepath);
+        exit(-1);
     }
-    fclose(dump_user.dump_file);
+    FILE* dump_file;
+    if (!text_open_write(opts.output, &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+        exit(-1);
+    }
+    //Start parsing the bam file.
+    DUMP_BAM user;
+    user.dump_file = dump_file;
+    hmr_bam_read(filepath, BAM_MAPPING_PROC{ dump_bam_n_contig, dump_bam_contig, dump_bam_read_align }, &user, 1);
+    fclose(dump_file);
     return 0;
 }
 
-typedef struct DUMP_EDGE_USER
+int dump_nodes(int argc, char* argv[])
 {
-    FILE* text_out;
-} DUMP_EDGE_USER;
-
-void dump_edge_size(uint64_t size, void* user) {}
-void dump_edge_proc(const HMR_EDGE_INFO& edge_info, void* user)
-{
-    DUMP_EDGE_USER* edge_user = reinterpret_cast<DUMP_EDGE_USER*>(user);
-    fprintf(edge_user->text_out, "%-14d  %-14d %-14d %lf\n", edge_info.start, edge_info.end, edge_info.pairs, edge_info.weights);
+    if (argc < 2)
+    {
+        printf("Usage: nodes [nodes file path] -o [dump file path]\n");
+        exit(-1);
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open nodes file %s\n", filepath);
+        exit(-1);
+    }
+    FILE* dump_file;
+    if (!text_open_write(opts.output, &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+        exit(-1);
+    }
+    //Start parsing the bam file.
+    HMR_CONTIGS node_infos;
+    hmr_graph_load_contigs(filepath, node_infos.contigs, &node_infos.names);
+    //Write the contig name and length.
+    fprintf(dump_file, "#\tContig\tRECounts\tLength\n");
+    for (size_t i = 0; i < node_infos.contigs.size(); ++i)
+    {
+        fprintf(dump_file, "%zu\t%s\t%d\t%d\n", i, node_infos.names[i].name, node_infos.contigs[i].enzyme_count, node_infos.contigs[i].length);
+    }
+    fclose(dump_file);
+    return 0;
 }
 
-
-int dump_adj_matrix(int argc, char* argv[])
+int dump_group(int argc, char* argv[])
 {
-    //Prase the arguments.
-    parse_arguments(argc, argv);
+    if (argc < 2)
+    {
+        printf("Usage: group [group file path] -n [nodes file path] -o [dump file path]\n");
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open group file %s\n", filepath);
+        exit(-1);
+    }
+    if (!opts.nodes)
+    {
+        printf("Please provide the node file path.\n");
+        exit(-1);
+    }
+    if (!path_can_read(opts.nodes))
+    {
+        printf("Failed to open node file %s\n", opts.nodes);
+        exit(-1);
+    }
+    FILE* dump_file;
+    if (!text_open_write(opts.output, &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+    }
+    //Load the contigs.
+    HMR_CONTIGS node_infos;
+    hmr_graph_load_contigs(opts.nodes, node_infos.contigs, &node_infos.names);
     //Load the group.
-    return 0;
+    HMR_CONTIG_ID_VEC contig_ids;
+    hmr_graph_load_contig_ids(filepath, contig_ids);
+    fprintf(dump_file, "#\tContig\tLength\n");
+    for (int32_t contig_id : contig_ids)
+    {
+        fprintf(dump_file, "%d\t%s\t%d\n", contig_id, node_infos.names[contig_id].name, node_infos.contigs[contig_id].length);
+    }
+    fclose(dump_file);
 }
 
-std::map<std::string, DUMP_OP> dump_ops = {
-    {"bam", DUMP_OP {"Dump the information of the bam file", &dump_bam}},
+std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
+    {"bam", dump_bam},
+    {"nodes", dump_nodes},
+    {"group", dump_group},
 };
 
-void exit_command_help(int exitCode)
+void help_exit(const char *s = NULL)
 {
-    printf("usage: <command> [<options>]\n");
-    printf("command arguments:\n");
-    for (auto const& op_iter : dump_ops)
+    printf("usage: op [param]\n");
+    printf("Support operations:\n");
+    for (const auto iter : dump_proc_map)
     {
-        printf("    %-10s\t%s\n", op_iter.first.c_str(), op_iter.second.description.c_str());
+        printf("    %s\n", iter.first.c_str());
     }
-    exit(exitCode);
-}
-
-void lower_command(char* source)
-{
-    int source_length = strlen(source);
-    for (int i = 0; i < source_length; ++i)
-    {
-        if (source[i] >= 'A' && source[i] <= 'Z')
-        {
-            source[i] = 'a' + source[i] - 'A';
-        }
-    }
+    exit(-1);
 }
 
 int main(int argc, char* argv[])
 {
-    //Decide the operation based on the first argument.
+    //Check the operations.
     if (argc < 2)
     {
-        exit_command_help(0);
+        help_exit();
     }
-    lower_command(argv[1]);
-    std::string command = std::string(argv[1]);
-    auto command_iter = dump_ops.find(command);
-    if (command_iter == dump_ops.end())
+    std::string op = argv[1];
+    const auto iter = dump_proc_map.find(op);
+    if (iter == dump_proc_map.end())
     {
-        printf("Unknown command '%s'.", command.c_str());
-        exit_command_help(1);
+        printf("Unknown operation '%s'", op.c_str());
+        help_exit();
     }
-    //Call the function of the command.
-    return command_iter->second.op(argc - 1, argv + 1);
+    //Or else, call the target function.
+    return iter->second(argc - 1, argv + 1);
 }

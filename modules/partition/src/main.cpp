@@ -1,16 +1,13 @@
 #include <algorithm>
-#include <cstdlib>
-#include <cstdio>
 
 #include "hmr_args.hpp"
-#include "hmr_ui.hpp"
 #include "hmr_path.hpp"
-#include "hmr_contig_graph.hpp"
-#include "hmr_allele.hpp"
-#include "partition_type.hpp"
-#include "partition.hpp"
+#include "hmr_ui.hpp"
 
 #include "args_partition.hpp"
+#include "hmr_contig_graph.hpp"
+
+#include "partition.hpp"
 
 extern HMR_ARGS opts;
 
@@ -21,92 +18,97 @@ int main(int argc, char* argv[])
     //Check the arguments are meet the requirements.
     if (!opts.nodes) { help_exit(-1, "Missing HMR graph contig information file path."); }
     if (!path_can_read(opts.nodes)) { time_error(-1, "Cannot read HMR graph contig file %s", opts.nodes); }
-    if (!opts.edge) { help_exit(-1, "Missing HMR graph edge weight file path."); }
-    if (!path_can_read(opts.edge)) { time_error(-1, "Cannot read HMR graph edge weight file %s", opts.edge); }
+    if (!opts.edges) { help_exit(-1, "Missing HMR graph edge weight file path."); }
+    if (!path_can_read(opts.edges)) { time_error(-1, "Cannot read HMR graph edge weight file %s", opts.edges); }
     if (opts.groups < 1) { time_error(-1, "Please specify the group to be separated."); }
     if (!opts.output) { help_exit(-1, "Missing output HMR partition file path."); }
     //Print the execution configuration.
-    bool allele_mode = opts.allele_table;
     time_print("Execution configuration:");
     time_print("\tNumber of Partitions: %d", opts.groups);
-    time_print("\tAllele mode: %s", allele_mode ? "Yes" : "No");
+    time_print("\tAllele mode: %s", opts.allele ? "Yes" : "No");
+    time_print("\tEdge buffer: %dK", opts.read_buffer_size);
+    opts.read_buffer_size <<= 10;
+    time_print("\tNon informative ratio: %d", opts.non_informative_ratio);
     //Load the contig node information.
-    HMR_CONTIGS contigs;
+    HMR_NODES nodes;
     time_print("Loading contig information from %s", opts.nodes);
-    hmr_graph_restore_contig_data(opts.nodes, &contigs);
-    time_print("%zu contig(s) information loaded.", contigs.size());
-    //Building clusters for the contigs.
-    CLUSTER_INFO cluster_user;
-    //Read the allele table when provided.
-    cluster_user.allele_mode = allele_mode;
-    if(cluster_user.allele_mode)
+    hmr_graph_load_contigs(opts.nodes, nodes);
+    time_print("%zu contig(s) information loaded.", nodes.size());
+    HMR_CONTIG_ID_VEC invalid_nodes;
     {
-        time_print("Loading allele table from %s", opts.allele_table);
-        hmr_allele_table_conflict_set(opts.allele_table, contigs, cluster_user.allele_table);
+        std::string invalid_node_path = hmr_graph_path_nodes_invalid(opts.nodes);
+        if (path_can_read(invalid_node_path.c_str()))
+        {
+            //Load the invalid nodes.
+            time_print("Loading invalid contig id from %s", invalid_node_path.c_str());
+            hmr_graph_load_contig_ids(invalid_node_path.c_str(), invalid_nodes);
+            time_print("%zu invalid id(s) loaded.", invalid_nodes.size());
+        }
+    }
+    //Load the allele table when needed.
+    HMR_ALLELE_TABLE allele_table;
+    if (opts.allele)
+    {
+        time_print("Loading allele table from %s", opts.allele);
+        hmr_graph_load_allele_table(opts.allele, allele_table);
         time_print("Allele table loaded.");
     }
-    partition_create_init_clusters(contigs, cluster_user);
-    {
-        //Prepare the link density user.
-        LINK_FACTORS contig_factors{ NULL, 0.0, CONTIG_ID_SET(), allele_mode, cluster_user.allele_table };
-        partition_init_factors(static_cast<int32_t>(contigs.size()), contig_factors);
-        //Read the edge information.
-        time_print("Calculating contig factors...");
-        hmr_graph_load_edge(opts.edge, partition_factors_size_proc, partition_factors_edge_proc, &contig_factors);
-        contig_factors.avergage_links = contig_factors.avergage_links / static_cast<double>(contigs.size()) * 2.0;
-        time_print("Contig factors ready.");
-        time_print("Skipping contigs likely from repetitive regions with multiplicity %d...", opts.max_link_density);
-        int32_t num_of_contigs = static_cast<int32_t>(contigs.size());
-        for (int32_t i = 0; i < num_of_contigs; ++i)
-        {
-            contig_factors.factors[i] /= contig_factors.avergage_links;
-            if (contig_factors.factors[i] >= static_cast<double>(opts.max_link_density))
-            {
-                contig_factors.skipped.insert(i);
-            }
-        }
-        //Generate link densities based on graph edge information.
-        time_print("Skipping contigs whose enzyme count is less than %d...", opts.min_re);
-        {
-            CONTIG_ID_SET skipped = partition_skip_few_res(contigs, opts.min_re);
-            contig_factors.skipped.insert(skipped.begin(), skipped.end());
-        }
-        time_print("Initiating merge requests and link densities...");
-        DENSITY_INFO density_info{ contig_factors, cluster_user };
-        cluster_user.link_densities.resize(num_of_contigs);
-        hmr_graph_load_edge(opts.edge, partition_link_densities_size_proc, partition_link_densities_edge_proc, &density_info);
-        time_print("%zu merge requests created.", cluster_user.merge_size);
-        time_print("Skipping empty link contigs...");
-        partition_skip_empty_links(cluster_user.link_densities, contig_factors.skipped);
-        time_print("%zu contig(s) are skipped total.", contig_factors.skipped.size());
-        //Delete all the skipped sets.
-        if (!contig_factors.skipped.empty())
-        {
-            //Remove skipped nodes.
-            partition_remove_skipped_contigs(contig_factors, cluster_user, opts.output);
-        }
-        partition_free_factors(contig_factors);
-    }
+    //Construct the partition clusters.
+    CLUSTER_INFO partition_info;
+    time_print("Initialize the partition information...");
+    partition_init_clusters(nodes, invalid_nodes, partition_info);
+    hmr_graph_load_edges(opts.edges, opts.read_buffer_size, partition_edge_size_proc, partition_edge_proc, &partition_info);
+    time_print("%zu merge operations built.", partition_info.merge_size);
     //Start clustering.
-    time_print("Start clustering %zu groups...", cluster_user.cluster_size);
-    partition_cluster(cluster_user, opts.groups);
-    time_print("%zu group(s) finally generated.", cluster_user.cluster_size);
-    //Dumping the result to the output file.
-    char group_file_path[4097];
-    for(size_t i=0; i<cluster_user.cluster_size; ++i)
+    time_print("Clustering %zu informative contigs with target of %d groups...", partition_info.cluster_size, opts.groups);
+    partition_cluster(partition_info, opts.groups);
+    time_print("Merge stage complete, %zu cluster(s) left.", partition_info.cluster_size);
+    //Ignore the clusters only have 1 contig.
+    time_print("Filtering individual node clusters...");
+    std::vector<HMR_CONTIG_ID_VEC*> clusters;
+    clusters.reserve(partition_info.cluster_size);
+    for (size_t i = 0; i < partition_info.cluster_size; ++i)
     {
-        CONTIG_ID_VECTOR &cluster = *cluster_user.clusters[i];
-        //Construct the file path.
-#ifdef _MSC_VER
-        sprintf_s(group_file_path, 4096, "%s_%zug%zu.hmr_group", opts.output, cluster_user.cluster_size, i + 1);
-#else
-        sprintf(group_file_path, "%s_%zug%zu.hmr_group", opts.output, cluster_user.cluster_size, i+1);
-#endif
-        time_print("Saving cluster %zu (%zu contigs) to %s...", i+1, cluster.size(), group_file_path);
-        //Sort the partition.
-        std::sort(cluster.begin(), cluster.end());
-        hmr_graph_save_partition(group_file_path, cluster);
+        //Ignore the individual node cluster.
+        if (partition_info.clusters[i]->size() == 1)
+        {
+            int32_t contig_id = (*partition_info.clusters[i])[0];
+            //Add contig id to invalid contig.
+            invalid_nodes.emplace_back(contig_id);
+            //Reset the belongs flag.
+            partition_info.belongs[contig_id] = NULL;
+            free(partition_info.clusters[i]);
+            continue;
+        }
+        //Save the clusters.
+        clusters.emplace_back(partition_info.clusters[i]);
     }
+    partition_info.cluster_size = 0;
+    time_print("%zu clusters remain.", clusters.size());
+    //Try to recover previously skipped contigs.
+    time_print("Recovering skipped contigs...");
+    //Find out the best matched cluster, but do not add them in.
+    std::sort(invalid_nodes.begin(), invalid_nodes.end());
+    partition_recover(clusters, invalid_nodes, opts.non_informative_ratio, partition_info);
+    for (int32_t contig_id : invalid_nodes)
+    {
+        //Add the contig id to the cluster groups.
+        if (partition_info.belongs[contig_id])
+        {
+            partition_info.belongs[contig_id]->emplace_back(contig_id);
+        }
+    }
+    //Dumping the result to the output file.
+    int32_t cluster_total = static_cast<int32_t>(clusters.size());
+    for (int32_t i = 0; i < cluster_total; ++i)
+    {
+        std::string cluster_path = hmr_graph_path_cluster_name(opts.output, i+1, cluster_total);
+        HMR_CONTIG_ID_VEC* group_cluster = clusters[i];
+        time_print("Saving cluster %zu (%zu contigs) to %s", i + 1, group_cluster->size(), cluster_path.c_str());
+        std::sort(clusters[i]->begin(), clusters[i]->end());
+        hmr_graph_save_contig_ids(cluster_path.c_str(), *clusters[i]);
+    }
+    partition_free_clusters(partition_info);
     time_print("Partition complete.");
     return 0;
 }

@@ -3,6 +3,6 @@
 
 #include <vector>
 
-void hmr_enzyme_formalize(char* enzyme, const char** nuc_seq, int* nuc_seq_size);
+void hmr_enzyme_formalize(char* enzyme, const size_t &enzyme_size);
 
 #endif // HMR_BIN_ENZYME

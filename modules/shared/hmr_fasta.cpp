@@ -75,9 +75,10 @@ inline void fasta_yield_line(char *line, size_t line_size, FASTA_PARSE &args, in
     {
         //Check the sequence.
         size_t seq_extend_len = args.seq_data_len + line_size;
-        args.seq_data = static_cast<char *>(realloc(args.seq_data, seq_extend_len + 1));
+        char *seq_data = static_cast<char*>(realloc(args.seq_data, seq_extend_len + 1));
+        assert(seq_data);
+        args.seq_data = seq_data;
         //Copy the data.
-        assert(args.seq_data);
         memcpy(args.seq_data + args.seq_data_len, line, line_size);
         args.seq_data_len = seq_extend_len;
         args.seq_data[args.seq_data_len] = '\0';

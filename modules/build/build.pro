@@ -28,7 +28,6 @@ HEADERS += \
     ../shared/hmr_args_types.hpp \
     ../shared/hmr_bin_file.hpp \
     ../shared/hmr_bin_queue.hpp \
-    ../shared/hmr_char.hpp \
     ../shared/hmr_contig_graph.hpp \
     ../shared/hmr_contig_graph_type.hpp \
     ../shared/hmr_fasta.hpp \
@@ -38,4 +37,3 @@ HEADERS += \
     ../shared/hmr_text_file.hpp \
     ../shared/hmr_ui.hpp \
     src/args_build.hpp
-

@@ -15,16 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\args_ordering.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\ordering_descent.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ordering_loader.cpp">
+    <ClCompile Include="src\args_ordering.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\hmr_args.cpp">
@@ -33,27 +27,27 @@
     <ClCompile Include="..\shared\hmr_bin_file.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\hmr_contig_graph.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\shared\hmr_path.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\hmr_ui.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\shared\hmr_contig_graph.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ordering_descent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ordering_loader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\hmr_algorithm.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\args_ordering.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ordering_descent.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ordering_loader.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ordering_type.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_args.hpp">
@@ -65,19 +59,28 @@
     <ClInclude Include="..\shared\hmr_bin_file.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\shared\hmr_path.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\hmr_ui.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="..\shared\hmr_contig_graph.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_contig_graph_type.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_global.hpp">
+    <ClInclude Include="src\ordering_descent.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_path.hpp">
+    <ClInclude Include="src\ordering_loader.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_ui.hpp">
+    <ClInclude Include="src\ordering_type.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\hmr_algorithm.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -26,6 +26,27 @@ void path_split(const char* filepath, size_t length, std::string& filepath_base,
     filepath_suffix = filepath_str.substr(dot_pos);
 }
 
+bool path_ends_with(const char* filepath, const char* suffix)
+{
+    size_t path_len = strlen(filepath);
+    size_t suffix_len = strlen(suffix);
+    if (path_len < suffix_len)
+    {
+        return false;
+    }
+    //Compare the path suffix len.
+    for (const char* f_p = filepath + (path_len - suffix_len), *s_p = suffix, *s_max = suffix + suffix_len; s_p < s_max; )
+    {
+        if (*f_p != *s_p)
+        {
+            return false;
+        }
+        ++f_p;
+        ++s_p;
+    }
+    return true;
+}
+
 std::string path_suffix(const char *filepath, size_t length)
 {
     //Find the dot from the last one.

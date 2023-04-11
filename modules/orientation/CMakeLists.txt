@@ -20,5 +20,6 @@ add_executable(hana_orientation
     ../shared/hmr_ui.cpp
     src/args_orientation.cpp
     src/main.cpp
+    src/orientation.cpp
 )
 

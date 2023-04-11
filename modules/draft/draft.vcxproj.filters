@@ -15,75 +15,36 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\args_draft.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\draft_fasta_index.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\draft_mapping.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\args_draft.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\hmr_args.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\hmr_bam.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_bgzf.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\shared\hmr_bin_file.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_bin_queue.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_contig_graph.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_enzyme.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_fasta.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_gz.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_mapping.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\hmr_path.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\hmr_seq.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_text_file.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\shared\hmr_ui.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\hmr_contig_graph.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\draft_mappings.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\shared\hmr_algorithm.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\args_draft.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\draft_fasta_index.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\draft_fasta_type.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\draft_map_type.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\draft_mapping.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_args.hpp">
@@ -92,16 +53,13 @@
     <ClInclude Include="..\shared\hmr_args_types.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_bam.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_bgzf.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\shared\hmr_bin_file.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_bin_queue.hpp">
+    <ClInclude Include="..\shared\hmr_path.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\hmr_ui.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_contig_graph.hpp">
@@ -110,40 +68,13 @@
     <ClInclude Include="..\shared\hmr_contig_graph_type.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_enzyme.hpp">
+    <ClInclude Include="src\draft_mappings.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_fasta.hpp">
+    <ClInclude Include="src\draft_mappings_type.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_global.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_gz.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_mapping.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_mapping_type.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_path.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_seq.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_text_file.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_thread_pool.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_ui.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_char.hpp">
+    <ClInclude Include="..\shared\hmr_algorithm.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

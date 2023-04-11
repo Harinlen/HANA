@@ -11,8 +11,8 @@ typedef struct HMR_ARGS
     const char* group = NULL;
     const char* output = NULL;
     double mutapb = 0.2;
-    int ngen = 5000, npop = 100, threads = 1;
-    uint64_t seed = 0;
+    int ngen = 5000, npop = 100, threads = 1, read_buffer_size = 512;
+    uint64_t seed = 0, max_gen = 1000000;
 } HMR_ARGS;
 
 #endif // ARGS_ORDERING_H

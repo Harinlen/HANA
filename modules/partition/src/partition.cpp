@@ -1,233 +1,173 @@
 #include <algorithm>
-#include <cstdlib>
 #include <cassert>
-#include <cstdio>
+#include <cstdlib>
+#include <cmath>
 
-#include "hmr_global.hpp"
-#include "hmr_contig_graph.hpp"
 #include "hmr_ui.hpp"
 
 #include "partition.hpp"
 
-inline HMR_EDGE direct_edge(uint64_t data)
+bool vector_has_intersection(const HMR_CONTIG_ID_VEC& group_a, const HMR_CONTIG_ID_VEC& group_b)
 {
-    HMR_EDGE edge{};
-    edge.data = data;
-    return edge;
-}
-
-inline void insert_link_density(int32_t a, int32_t b, double density, MAP_LINK_DENSITY &map)
-{
-    map[a].insert(std::make_pair(b, density));
-}
-
-void partition_create_init_clusters(const HMR_CONTIGS &contigs, CLUSTER_INFO &cluster_info)
-{
-    //Find out the contigs
-    cluster_info.cluster_size = contigs.size();
-    cluster_info.clusters = new CONTIG_ID_VECTOR*[cluster_info.cluster_size];
-    cluster_info.belongs = new CONTIG_ID_VECTOR*[cluster_info.cluster_size];
-    if (!cluster_info.clusters || !cluster_info.belongs)
+    auto i = group_a.begin(), j = group_b.begin();
+    while (i != group_a.end() && j != group_b.end())
     {
-        time_error(-1, "No enough memory to allocate cluster belonging memory.\n");
+        if (*i < *j)
+        {
+            ++i;
+        }
+        else if (*i < *j)
+        {
+            ++j;
+        }
+        else
+        {
+            return true;
+        }
     }
-    assert(cluster_info.clusters);
-    assert(cluster_info.belongs);
-    for(int32_t i=0, i_max = static_cast<int32_t>(cluster_info.cluster_size); i<i_max; ++i)
+    return false;
+}
+
+bool partition_is_merge_valid(HMR_CONTIG_ID_VEC* group_a, HMR_CONTIG_ID_VEC* group_b, const HMR_ALLELE_TABLE& allele_table)
+{
+    HMR_CONTIG_ID_VEC* cluster_small, * cluster_large;
+    if (group_a->size() < group_b->size())
     {
-        CONTIG_ID_VECTOR *cluster = new CONTIG_ID_VECTOR();
+        cluster_small = group_a;
+        cluster_large = group_b;
+    }
+    else
+    {
+        cluster_small = group_b;
+        cluster_large = group_a;
+    }
+    //Go through the smaller cluster.
+    for (int32_t contig_index : *cluster_small)
+    {
+        auto allele_record_iter = allele_table.find(contig_index);
+        if (allele_record_iter == allele_table.end())
+        {
+            continue;
+        }
+        //Whether these two vectors contains the same items.
+        if (vector_has_intersection(allele_record_iter->second, *cluster_large))
+        {
+            //When they has intersection, we cannot merge them
+            return false;
+        }
+    }
+    return true;
+}
+
+void partition_init_clusters(const HMR_NODES& nodes, const HMR_CONTIG_ID_VEC& invalid_nodes, CLUSTER_INFO& info)
+{
+    //Allocate the belongs array.
+    info.belongs = static_cast<HMR_CONTIG_ID_VEC**>(malloc(sizeof(HMR_CONTIG_ID_VEC*) * nodes.size()));
+    if (!info.belongs)
+    {
+        time_error(-1, "Failed to allocate memory for contig belong matrix.");
+    }
+    assert(info.belongs);
+    size_t num_of_contigs = nodes.size(), invalid_pos = 0, num_of_invalids = invalid_nodes.size(), 
+        num_of_clusters = num_of_contigs - num_of_invalids, cluster_pos = 0;
+    info.clusters = static_cast<HMR_CONTIG_ID_VEC**>(malloc(sizeof(HMR_CONTIG_ID_VEC*) * num_of_clusters));
+    if (!info.clusters)
+    {
+        time_error(-1, "Failed to allocate memory for clusters.");
+    }
+    assert(info.clusters);
+    info.cluster_size = num_of_clusters;
+    for (size_t i = 0; i < num_of_contigs; ++i)
+    {
+        //Check whether the node is marked as invalid.
+        if (invalid_pos < num_of_invalids && i == invalid_nodes[invalid_pos])
+        {
+            info.belongs[i] = NULL;
+            ++invalid_pos;
+            continue;
+        }
+        //Create an cluster for the contig.
+        HMR_CONTIG_ID_VEC* cluster = new HMR_CONTIG_ID_VEC();
         assert(cluster);
-        cluster->push_back(i);
-        cluster_info.clusters[i] = cluster;
-        cluster_info.belongs[i] = cluster;
+        cluster->push_back(static_cast<int32_t>(i));
+        info.belongs[i] = cluster;
+        info.clusters[cluster_pos] = cluster;
+        ++cluster_pos;
     }
+    assert(cluster_pos == num_of_clusters);
+    //Prepare the link densities.
+    info.link_densities.resize(num_of_contigs);
 }
 
-CONTIG_ID_SET partition_skip_few_res(const HMR_CONTIGS &contigs, const int32_t min_re)
+void partition_free_clusters(CLUSTER_INFO& info)
 {
-    CONTIG_ID_SET skipped_ids;
-    for(size_t i=0; i<contigs.size(); ++i)
+    if (info.merge)
     {
-        if(contigs[i].enzyme_count < min_re)
-        {
-            skipped_ids.insert(static_cast<int32_t>(i));
-        }
+        delete[] info.merge;
     }
-    return skipped_ids;
-}
-
-void partition_skip_empty_links(const MAP_LINK_DENSITY& link_densities, CONTIG_ID_SET& skipped)
-{
-    for (size_t i = 0; i < link_densities.size(); ++i)
+    for (int32_t i = 0; i < info.cluster_size; ++i)
     {
-        if (link_densities[i].empty())
-        {
-            skipped.insert(static_cast<int32_t>(i));
-        }
+        delete info.clusters[i];
     }
+    free(info.clusters);
+    free(info.belongs);
 }
 
-void partition_init_factors(int32_t num_of_contigs, LINK_FACTORS& factors_info)
+void partition_edge_size_proc(uint64_t edge_size, void* user)
 {
-    //Prepare the density info.
-    factors_info.factors = new double[num_of_contigs];
-    if (!factors_info.factors)
-    {
-        time_error(-1, "No enough memory for factor links");
-    }
-    //Reset the factors.
-    for (int32_t i = 0; i < num_of_contigs; ++i)
-    {
-        factors_info.factors[i] = 0.0f;
-    }
-}
-
-void partition_free_factors(LINK_FACTORS& factors_info)
-{
-    delete[] factors_info.factors;
-}
-
-void partition_factors_size_proc(uint64_t, void*)
-{
-}
-
-void partition_factors_edge_proc(const HMR_EDGE_INFO* edge_info, void* user)
-{
-    if (edge_info->start == edge_info->end)
-    {
-        return;
-    }
-    LINK_FACTORS* factors_info = reinterpret_cast<LINK_FACTORS*>(user);
-    //Check allele table (prune).
-    if (factors_info->allele_mode)
-    {
-        //Check whether start is in the table.
-        auto iter = factors_info->allele_table.find(edge_info->start);
-        if (iter != factors_info->allele_table.end())
-        {
-            if (iter->second.find(edge_info->end) != iter->second.end())
-            {
-                return;
-            }
-        }
-    }
-    //Insert and build the factors.
-    factors_info->avergage_links += edge_info->weights;
-    factors_info->factors[edge_info->start] += edge_info->weights;
-    factors_info->factors[edge_info->end] += edge_info->weights;
-}
-
-void partition_link_densities_size_proc(uint64_t edge_size, void* user)
-{
-    DENSITY_INFO* density_info = reinterpret_cast<DENSITY_INFO*>(user);
-    //Prepare the merge request and link densities.
-    density_info->cluster.merge = new MERGE_OP[edge_size];
-    if (!density_info->cluster.merge)
+    CLUSTER_INFO* info = static_cast<CLUSTER_INFO*>(user);
+    //Create the merge operation for each edge.
+    info->merge = new CLUSTER_MERGE_OP[edge_size >> 1];
+    if (!info->merge)
     {
         time_error(-1, "Failed to allocate density info memory.");
     }
-    assert(density_info->cluster.merge);
-    density_info->cluster.merge_size = 0;
+    assert(info->merge);
+    info->merge_size = 0;
 }
 
-void partition_link_densities_edge_proc(const HMR_EDGE_INFO* edge_info, void* user)
+void partition_edge_proc(HMR_EDGE_INFO* edges, int32_t edge_size, void* user)
 {
-    DENSITY_INFO* density_info = reinterpret_cast<DENSITY_INFO*>(user);
-    //Check allele table (prune).
-    if (density_info->link.allele_mode)
+    CLUSTER_INFO* info = static_cast<CLUSTER_INFO*>(user);
+    //Loop through the partition, construct the edge and link densities.
+    for (int32_t i = 0; i < edge_size; ++i)
     {
-        //Check whether start is in the table.
-        auto iter = density_info->link.allele_table.find(edge_info->start);
-        if (iter != density_info->link.allele_table.end())
+        const auto &edge = edges[i];
+        //Build the edge densities.
+        info->link_densities[edge.start].insert(std::make_pair(edge.end, edge.weights));
+        //Check contig is invalid or not.
+        if (info->belongs[edge.start] == NULL || info->belongs[edge.end] == NULL)
         {
-            if (iter->second.find(edge_info->end) != iter->second.end())
-            {
-                return;
-            }
-        }
-    }
-    CONTIG_ID_SET &skipped = density_info->link.skipped;
-    double* factors = density_info->link.factors;
-    //If any spot is skipped, ignore the weight.
-    int32_t start_index = edge_info->start, end_index = edge_info->end;
-    if (start_index == end_index || hInSet(start_index, skipped) || hInSet(end_index, skipped))
-    {
-        return;
-    }
-    //Calculate the density.
-    double start_density = edge_info->weights / factors[start_index];
-    //Build the contig link graph.
-    insert_link_density(start_index, end_index, start_density, density_info->cluster.link_densities);
-    insert_link_density(end_index, start_index, edge_info->weights / factors[end_index], density_info->cluster.link_densities);
-    //Create the merge request.
-    MERGE_OP& op = density_info->cluster.merge[density_info->cluster.merge_size];
-    op.a = density_info->cluster.belongs[start_index];
-    op.b = density_info->cluster.belongs[end_index];
-    op.weight = start_density;
-    op.is_valid = true;
-    ++density_info->cluster.merge_size;
-}
-
-void partition_remove_skipped_contigs(LINK_FACTORS &contig_factors, CLUSTER_INFO & cluster_info, const char *output_prefix)
-{
-    char skipped_path[4097];
-#ifdef _MSC_VER
-    sprintf_s(skipped_path, 4096, "%s_skipped.hmr_group", output_prefix);
-#else
-    sprintf(skipped_path, "%s_skipped.hmr_group", output_prefix);
-#endif
-    time_print("Saving %zu invalid contig(s) info to %s", contig_factors.skipped.size(), skipped_path);
-    CONTIG_ID_VECTOR skipped_ids(contig_factors.skipped.begin(), contig_factors.skipped.end());
-    std::sort(skipped_ids.begin(), skipped_ids.end());
-    hmr_graph_save_partition(skipped_path, skipped_ids);
-    time_print("Removing skipped clusters...");
-    //Reset the belongs pointer.
-    for(int32_t i: skipped_ids)
-    {
-        delete cluster_info.belongs[i];
-        cluster_info.belongs[i] = NULL;
-    }
-    //Delete the cluster reference from the vector.
-    size_t offset = 0;
-    for(int32_t i=0, i_max = static_cast<int32_t>(cluster_info.cluster_size); i<i_max; ++i)
-    {
-        //If the current cluster we have to skip, then skip it.
-        if(offset < skipped_ids.size() && i == skipped_ids[offset])
-        {
-            ++offset;
             continue;
         }
-        //Move the useful cluster.
-        if(offset != 0)
+        //Construct the merge operation.
+        if (edge.start < edge.end)
         {
-            cluster_info.clusters[i - offset] = cluster_info.clusters[i];
+            CLUSTER_MERGE_OP& op = info->merge[info->merge_size];
+            op.a = info->belongs[edge.start];
+            op.b = info->belongs[edge.end];
+            op.score = edge.weights;
+            op.is_valid = true;
+            ++info->merge_size;
         }
     }
-    cluster_info.cluster_size -= offset;
-    time_print("%zu clusters have been removed.", offset);
 }
 
-bool merge_op_comp(const MERGE_OP &a, const MERGE_OP &b)
+inline double get_density(int32_t node_id, const CONTIG_LINK_DENSITY& node_density)
 {
-    return a.weight < b.weight;
-}
-
-inline double get_density(int32_t node_id, const CONTIG_LINK_DENSITY &node_density)
-{
-    const auto &iter = node_density.find(node_id);
+    const auto& iter = node_density.find(node_id);
     return iter == node_density.end() ? 0.0 : iter->second;
 }
 
-double get_total_linkage(CONTIG_ID_VECTOR *group_a, CONTIG_ID_VECTOR *group_b,
-                       const MAP_LINK_DENSITY &link_density)
+double get_total_linkage(HMR_CONTIG_ID_VEC* group_a, HMR_CONTIG_ID_VEC* group_b, const GRAPH_LINK_DENSITY& link_density)
 {
     double total_linkage = 0.0;
     //Loop for all the nodes in the existed group.
-    for(int32_t i: *group_a)
+    for (int32_t i : *group_a)
     {
         //Extract its node map.
-        const auto &node_link_density = link_density[i];
-        for(int32_t j: *group_b)
+        const auto& node_link_density = link_density[i];
+        for (int32_t j : *group_b)
         {
             //Sum its weights.
             total_linkage += get_density(j, node_link_density);
@@ -236,108 +176,67 @@ double get_total_linkage(CONTIG_ID_VECTOR *group_a, CONTIG_ID_VECTOR *group_b,
     return total_linkage;
 }
 
-void remove_group_record(CLUSTER_INFO &cluster_info, CONTIG_ID_VECTOR* cluster)
+void partition_cluster(CLUSTER_INFO& cluster_info, int32_t num_of_groups)
 {
-    //Remove the cluster from group records.
-    auto &groups = cluster_info.clusters;
-    for(size_t i=0; i<cluster_info.cluster_size; ++i)
-    {
-        if(groups[i] == cluster)
-        {
-            //Copy all the reset to the current position.
-            for(size_t j=i+1; j<cluster_info.cluster_size; ++j)
-            {
-                groups[j-1] = groups[j];
-            }
-            --cluster_info.cluster_size;
-            break;
-        }
-    }
-    //Free the cluter.
-    delete cluster;
-}
-
-bool is_operation_valid(CONTIG_ID_VECTOR* group_a, CONTIG_ID_VECTOR* group_b, const HMR_ALLELE_TABLE &allele_table)
-{
-    CONTIG_ID_VECTOR* less, * large;
-    if (group_a->size() < group_b->size())
-    {
-        less = group_a;
-        large = group_b;
-    }
-    else
-    {
-        less = group_b;
-        large = group_a;
-    }
-    for (int32_t contig_index : *less)
-    {
-        auto contig_invalid_iter = allele_table.find(contig_index);
-        if (contig_invalid_iter == allele_table.end())
-        {
-            continue;
-        }
-        //Loop for everything in large set.
-        auto &contig_invalid_set = contig_invalid_iter->second;
-        for (int32_t candidate_index : *large)
-        {
-            if (hInSet(candidate_index, contig_invalid_set))
-            {
-                return false;
-            }
-        }
-    }
-    //All test passed.
-    return true;
-}
-
-void partition_cluster(CLUSTER_INFO &cluster_info, int32_t num_of_groups)
-{
-    auto &merges = cluster_info.merge;
+    auto& merges = cluster_info.merge;
+    auto& groups = cluster_info.clusters;
     //Loop until:
     //   - Nothing to merge
     //   - Cluster number reaches request.
-    int32_t op_counter = 0;
-    while(cluster_info.merge_size > 0 &&
-          cluster_info.cluster_size > static_cast<size_t>(num_of_groups))
+    uint64_t op_counter = 0;
+    size_t non_singleton_clusters = 0;
+    const size_t non_skipped = (cluster_info.cluster_size >> 1);
+    while (cluster_info.merge_size > 0 && cluster_info.cluster_size > static_cast<size_t>(num_of_groups))
     {
         //Find out the maximum weight in merge request.
         size_t max_weight_id = 0;
         {
-            double max_weight = merges[0].weight;
+            double max_score = merges[0].score;
             for (size_t i = 1; i < cluster_info.merge_size; ++i)
             {
-                if (merges[i].weight > max_weight)
+                if (merges[i].score > max_score)
                 {
                     max_weight_id = i;
-                    max_weight = merges[i].weight;
+                    max_score = merges[i].score;
                 }
             }
         }
         //Get the top of the vector, which is the operation we are taking.
-        MERGE_OP &op = merges[max_weight_id];
-        //Merge all the contigs in op.b -> op.a
+        CLUSTER_MERGE_OP& op = merges[max_weight_id];
+        //We take this operation.
         op.is_valid = false;
-        CONTIG_ID_VECTOR* group_b = op.b, * group_a = op.a;
+        HMR_CONTIG_ID_VEC* group_b = op.b, * group_a = op.a;
         bool op_accept = true;
         //Check is this operation validate the allele table.
-        if (cluster_info.allele_mode && !is_operation_valid(group_a, group_b, cluster_info.allele_table))
+        if (cluster_info.allele_table && !partition_is_merge_valid(group_a, group_b, *cluster_info.allele_table))
         {
-            //Mark the op is not accept.
+            //Mark the merge operation is not accepted.
             op_accept = false;
         }
         else
         {
-            //Change the belongs of group b.
+            //What this magic?
+            if (group_a->size() == 1)
+            {
+                ++non_singleton_clusters;
+            }
+            if (group_b->size() == 1)
+            {
+                ++non_singleton_clusters;
+            }
+            --non_singleton_clusters;
+            //Change the belong pointers.
             for (const int32_t contig_id : *group_b)
             {
                 cluster_info.belongs[contig_id] = group_a;
             }
+            //Increase the group a, and sort it.
             group_a->insert(group_a->end(), group_b->begin(), group_b->end());
-            //We loop for all the rest of the merge operations.
+            std::sort(group_a->begin(), group_a->end());
+            //Invalid all the merge operations with group a and b.
             for (size_t i = 0; i < cluster_info.merge_size; ++i)
             {
-                CONTIG_ID_VECTOR* op_a = merges[i].a, * op_b = merges[i].b;
+                auto* op_a = merges[i].a, * op_b = merges[i].b;
                 //If the merge operation is related to group b, marked as invalid, will be removed.
                 if (op_a == group_b || op_b == group_b || op_a == group_a || op_b == group_a)
                 {
@@ -345,21 +244,39 @@ void partition_cluster(CLUSTER_INFO &cluster_info, int32_t num_of_groups)
                     continue;
                 }
             }
-            //Remove group b from clusters.
-            remove_group_record(cluster_info, group_b);
+            //Remove group b from clusters, and move group a to the end of the clusters.
+            size_t group_offset = 0;
+            for (size_t i = 0; i < cluster_info.cluster_size; ++i)
+            {
+                if (groups[i] == group_a || groups[i] == group_b)
+                {
+                    ++group_offset;
+                    continue;
+                }
+                if (group_offset)
+                {
+                    groups[i - group_offset] = groups[i];
+                }
+            }
+            //Decrease the cluster size.
+            --cluster_info.cluster_size;
+            //Recover group b.
+            delete group_b;
+            //Put group a at the end of the clusters.
+            groups[cluster_info.cluster_size - 1] = group_a;
         }
         //Remove the merge operations which are not valid.
         size_t op_offset = 0;
-        for(size_t i=0; i<cluster_info.merge_size; ++i)
+        for (size_t i = 0; i < cluster_info.merge_size; ++i)
         {
             //When the merge operation is invalid, increase the offset, skip to next.
-            if(!merges[i].is_valid)
+            if (!merges[i].is_valid)
             {
                 ++op_offset;
                 continue;
             }
             //Copy the current operation to several offset before.
-            merges[i-op_offset] = merges[i];
+            merges[i - op_offset] = merges[i];
         }
         //Update the merge operation size.
         cluster_info.merge_size -= op_offset;
@@ -368,35 +285,109 @@ void partition_cluster(CLUSTER_INFO &cluster_info, int32_t num_of_groups)
         {
             continue;
         }
+        //Create merge operations to new group a.
         //Calculate the cluster to new cluster offset.
-        auto &groups = cluster_info.clusters;
         const double group_a_size = static_cast<double>(group_a->size());
-        for(size_t i=0; i<cluster_info.cluster_size; ++i)
+        for (size_t i = 0; i < cluster_info.cluster_size; ++i)
         {
-            if(groups[i] == group_a)
+            if (groups[i] == group_a)
             {
                 continue;
             }
             //Calculate the weight of map.
-            double average_linkage = get_total_linkage(groups[i], group_a, cluster_info.link_densities) /
-                    static_cast<double>(groups[i]->size()) / group_a_size;
-            if(average_linkage <= 0.0)
+            double average_linkage = get_total_linkage(groups[i], group_a, cluster_info.link_densities) / static_cast<double>(groups[i]->size()) / group_a_size;
+            if (average_linkage <= 0.0)
             {
                 continue;
             }
             //Save the current merge request.
-            MERGE_OP &op = merges[cluster_info.merge_size];
+            CLUSTER_MERGE_OP& op = merges[cluster_info.merge_size];
             op.a = groups[i];
             op.b = group_a;
-            op.weight = average_linkage;
+            op.score = average_linkage;
             op.is_valid = true;
             ++cluster_info.merge_size;
         }
+        //UI hints.
         ++op_counter;
-        if(op_counter == 50)
+        //Analyze the current clusters if enough merges occured.
+        if (op_counter > non_skipped && non_singleton_clusters <= num_of_groups)
+        {
+            if (non_singleton_clusters == num_of_groups)
+            {
+                break;
+            }
+        }
+        if (op_counter % 50 == 0)
         {
             time_print("%zu cluster(s) left.", cluster_info.cluster_size);
-            op_counter = 0;
         }
     }
+}
+
+double partition_contig_cluster_linkage(int32_t contig_id, HMR_CONTIG_ID_VEC* cluster, const GRAPH_LINK_DENSITY& link_density, bool *has_linkage)
+{
+    //Get the contig id to cluster.
+    double total_linkage = 0.0;
+    //Extract its node map.
+    const CONTIG_LINK_DENSITY& node_link_density = link_density[contig_id];
+    for (int32_t group_id : *cluster)
+    {
+        auto group_id_iter = node_link_density.find(group_id);
+        if (group_id_iter != node_link_density.end())
+        {
+            *has_linkage = true;
+            total_linkage += group_id_iter->second;
+        }
+    }
+    return total_linkage / static_cast<double>(cluster->size());
+}
+
+typedef struct RECOVER_LINKAGE
+{
+    HMR_CONTIG_ID_VEC* cluster;
+    double average_linkage;
+} RECOVER_LINKAGE;
+
+bool partition_recover_linkage_greater(const RECOVER_LINKAGE& lhs, const RECOVER_LINKAGE& rhs)
+{
+    return lhs.average_linkage > rhs.average_linkage;
+}
+
+void partition_recover(const std::vector<HMR_CONTIG_ID_VEC*>& clusters, const HMR_CONTIG_ID_VEC& invalid_ids, const int32_t non_info_ratio, CLUSTER_INFO& info)
+{
+    RECOVER_LINKAGE *contig_linkages = new RECOVER_LINKAGE[clusters.size()];
+    double non_info_ratio_f = static_cast<double>(non_info_ratio);
+    assert(contig_linkages);
+    //Loop and check all the cluster linkages.
+    bool has_linkage;
+    for (const int32_t contig_id : invalid_ids)
+    {
+        size_t linkage_size = 0;
+        for (HMR_CONTIG_ID_VEC* cluster : clusters)
+        {
+            //Calculate the contig to cluster linkage.
+            has_linkage = false;
+            double linkage = partition_contig_cluster_linkage(contig_id, cluster, info.link_densities, &has_linkage);
+            if (has_linkage)
+            {
+                contig_linkages[linkage_size] = RECOVER_LINKAGE{ cluster, linkage };
+                ++linkage_size;
+            }
+        }
+        if (linkage_size == 0)
+        {
+            continue;
+        }
+        //Calculate the pass ratio. (why it is a boolean equation?)
+        std::sort(contig_linkages, contig_linkages + linkage_size, partition_recover_linkage_greater);
+        const auto& best = contig_linkages[0];
+        const auto& second_best = contig_linkages[1];
+        if (best.average_linkage >= non_info_ratio_f &&
+            ((linkage_size == 1) || (second_best.average_linkage == 0.0) || (best.average_linkage / second_best.average_linkage >= non_info_ratio_f)))
+        {
+            info.belongs[contig_id] = best.cluster;
+        }
+    }
+    delete[] contig_linkages;
 }

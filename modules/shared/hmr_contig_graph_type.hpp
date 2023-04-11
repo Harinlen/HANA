@@ -7,15 +7,27 @@
 #include <unordered_set>
 #include <unordered_map>
 
-typedef struct HMR_CONTIG
+typedef struct HMR_NODE
 {
     int32_t length;
     int32_t enzyme_count;
-    int32_t name_size;
-    char *name;
-} HMR_CONTIG;
+} HMR_NODE;
 
-typedef std::vector<HMR_CONTIG> HMR_CONTIGS;
+typedef std::vector<HMR_NODE> HMR_NODES;
+
+typedef struct HMR_NODE_NAME
+{
+    int32_t name_size;
+    char* name;
+} HMR_NODE_NAME;
+
+typedef std::vector<HMR_NODE_NAME> HMR_NODE_NAMES;
+
+typedef struct HMR_CONTIGS
+{
+    HMR_NODES contigs;
+    HMR_NODE_NAMES names;
+} HMR_CONTIGS;
 
 typedef union HMR_EDGE
 {
@@ -30,8 +42,7 @@ typedef struct HMR_EDGE_INFO
 {
     int32_t start;
     int32_t end;
-    int32_t pairs;
-    int32_t padding;
+    uint64_t pairs;
     double weights;
 } HMR_EDGE_INFO;
 
@@ -45,15 +56,11 @@ typedef struct HMR_MAPPING
     int32_t next_pos;
 } HMR_MAPPING;
 
-typedef std::list<int32_t> HMR_CONTIG_INVALID_IDS;
-typedef std::unordered_set<int32_t> HMR_CONTIG_INVALID_SET;
-
-typedef std::unordered_set<int32_t> CONTIG_ID_SET;
-typedef std::vector<CONTIG_ID_SET> CONTIG_ID_SETS;
-
-typedef std::vector<int32_t> CONTIG_ID_VECTOR;
-typedef std::vector<CONTIG_ID_VECTOR> CONTIG_ID_VECTORS;
-typedef std::vector<CONTIG_ID_VECTOR *> CONTIG_ID_CLUSTERS;
+typedef std::vector<int32_t> HMR_CONTIG_ID_VEC;
+typedef std::unordered_set<int32_t> HMR_CONTIG_ID_SET;
+typedef std::list<int32_t> HMR_CONTIG_ID_CHAIN;
+typedef std::unordered_map<int32_t, HMR_CONTIG_ID_VEC> HMR_ALLELE_TABLE;
+typedef std::unordered_map<int32_t, HMR_CONTIG_ID_SET> HMR_ALLELE_MAP;
 
 typedef struct HMR_DIRECTED_CONTIG
 {

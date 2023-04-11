@@ -25,6 +25,7 @@ typedef struct TEXT_LINE_HANDLE
 } TEXT_LINE_HANDLE;
 
 std::string text_open_read(const char *filepath, void** handle);
+/* This buf should not be freed by user */
 bool text_open_read_line(const char* filepath, TEXT_LINE_HANDLE *handle);
 void text_close_read_line(TEXT_LINE_HANDLE* handle);
 

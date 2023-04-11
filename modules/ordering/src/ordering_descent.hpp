@@ -5,10 +5,7 @@
 
 #include "ordering_type.hpp"
 
-ORDERING_TIG* ordering_init_alloc(int32_t contig_size);
-
-void ordering_init(ORDERING_INFO& info, const CONTIG_ID_VECTOR& start_order);
-void ordering_optimize_phase(int32_t phase, int npop, int ngen, double mutapb,
-                             ORDERING_INFO &info, std::mt19937_64& rng, int threads);
+void ordering_descent_init(const HMR_CONTIG_ID_VEC& contig_group, const HMR_NODES& contigs, ORDERING_INFO& info);
+HMR_CONTIG_ID_VEC ordering_descent_optimize(int32_t phase, int npop, int ngen, uint64_t maxgen, double mutapb, ORDERING_INFO& info, std::mt19937_64& rng, int threads);
 
 #endif // ORDERING_DESCENT_H

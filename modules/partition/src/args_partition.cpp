@@ -7,11 +7,11 @@
 HMR_ARGS opts;
 
 HMR_ARG_PARSER args_parser = {
-    { {"-n", "--nodes"}, "NDOES", "HMR contig node file (.hmr_contig)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
-    { {"-e", "--edge"}, "EDGE", "HMR edge file (.hmr_edge)", LAMBDA_PARSE_ARG { opts.edge = arg[0];}},
-    { {"-g", "--group"}, "GROUP", "Number of homologous chromosomes groups", LAMBDA_PARSE_ARG {opts.groups = atoi(arg[0]); }},
-    { {"-r", "--re"}, "MIN_RE", "Number of minimum REs (default: 25)", LAMBDA_PARSE_ARG {opts.min_re = atoi(arg[0]); }},
-    { {"--max-link-density"}, "MAX_LINK_DENSITY", "Density threshold of repetitive contig (default: 2)", LAMBDA_PARSE_ARG {opts.max_link_density = atoi(arg[0]); }},
-    { {"-a", "--table"}, "ALLELE_TABLE", "Allele contig table (.hmr_allele/.ctg.table)", LAMBDA_PARSE_ARG {opts.allele_table = arg[0]; }},
+    { {"-n", "--nodes"}, "NDOES", "HMR contig node file (.hmr_nodes)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
+    { {"-e", "--edges"}, "EDGES", "HMR edges file (.hmr_edges)", LAMBDA_PARSE_ARG { opts.edges = arg[0];}},
+    { {"-a", "--allele"}, "ALLELE_TABLE", "HMR allele table file (.hmr_allele_table)", LAMBDA_PARSE_ARG { opts.allele = arg[0]; }},
+    { {"-g", "--group"}, "GROUP", "Number of groups to be partitioned", LAMBDA_PARSE_ARG {opts.groups = atoi(arg[0]); }},
     { {"-o", "--output"}, "OUTPUT", "Output partition file (.hmr_partition)", LAMBDA_PARSE_ARG {opts.output = arg[0]; }},
+    { {"-b", "--buffer-size"}, "BUFFER_SIZE", "HMR edge buffer size (unit: K, default: 512)", LAMBDA_PARSE_ARG {opts.read_buffer_size = atoi(arg[0]); }},
+    { {"--non-informative-ratio"}, "NON_INFO_RATIO", "Skipped contigs recover cutoff (default: 3)", LAMBDA_PARSE_ARG {opts.non_informative_ratio = atoi(arg[0]); }},
 };

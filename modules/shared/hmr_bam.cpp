@@ -2,26 +2,12 @@
 
 #include "hmr_bgzf.hpp"
 #include "hmr_bin_queue.hpp"
+#include "hmr_global.hpp"
 #include "hmr_ui.hpp"
 
 #include "hmr_bam.hpp"
 
-typedef struct BAM_BLOCK_HEADER
-{
-    int32_t refID;
-    int32_t pos;
-    uint8_t l_read_name;
-    uint8_t mapq;
-    uint16_t bin;
-    uint16_t n_cigar_op;
-    uint16_t flag;
-    uint32_t l_seq;
-    int32_t next_refID;
-    int32_t next_pos;
-    int32_t tlen;
-} BAM_BLOCK_HEADER;
-
-void hmr_bam_read(const char* filepath, MAPPING_PROC proc, void* user, int threads)
+void hmr_bam_read(const char* filepath, BAM_MAPPING_PROC proc, void* user, int threads)
 {
     //Open the .bam file as BGZF file.
     HMR_BGZF_HANDLER* bgzf_handler = hmr_bgzf_open(filepath, threads);
@@ -36,6 +22,7 @@ void hmr_bam_read(const char* filepath, MAPPING_PROC proc, void* user, int threa
     //Skip the header text.
     uint32_t l_text = hmr_bin_buf_fetch_uint32(buf, queue);
     char* text = hmr_bin_buf_fetch(buf, queue, l_text);
+    HMR_UNUSED(text)
     //Fetch the n_ref.
     uint32_t n_ref = hmr_bin_buf_fetch_uint32(buf, queue);
     proc.proc_no_of_contig(n_ref, user);
@@ -58,10 +45,8 @@ void hmr_bam_read(const char* filepath, MAPPING_PROC proc, void* user, int threa
         uint32_t block_size = *(reinterpret_cast<uint32_t*>(block_size_data));
         //Fetch the data of the fetch.
         char* block_data = hmr_bin_buf_fetch(buf, queue, block_size);
-        //Recast the block data into header.
-        BAM_BLOCK_HEADER* header = reinterpret_cast<BAM_BLOCK_HEADER*>(block_data);
         //Call the process function.
-        proc.proc_read_align(block_id, MAPPING_INFO {header->refID, header->pos, header->next_refID, header->next_pos, header->flag, header->mapq}, user);
+        proc.proc_read_align(block_id, reinterpret_cast<BAM_BLOCK_HEADER*>(block_data), user);
         //Increase the block id.
         ++block_id;
         //Fetch the next block.

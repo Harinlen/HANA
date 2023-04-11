@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\args_partition.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
+    <ClCompile Include="src\args_partition.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\hmr_args.cpp">
@@ -27,28 +27,16 @@
     <ClCompile Include="..\shared\hmr_path.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\shared\hmr_bin_file.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="..\shared\hmr_ui.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\shared\hmr_contig_graph.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\hmr_bin_file.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\partition.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_allele.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_text_file.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_gz.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\shared\hmr_bin_queue.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -62,10 +50,10 @@
     <ClInclude Include="..\shared\hmr_args_types.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_contig_graph_type.hpp">
+    <ClInclude Include="..\shared\hmr_path.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_path.hpp">
+    <ClInclude Include="..\shared\hmr_bin_file.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_ui.hpp">
@@ -74,28 +62,13 @@
     <ClInclude Include="..\shared\hmr_contig_graph.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_bin_file.hpp">
+    <ClInclude Include="..\shared\hmr_contig_graph_type.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\partition.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\partition_type.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_allele.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_allele_type.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_text_file.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_gz.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\shared\hmr_bin_queue.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

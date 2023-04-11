@@ -1,23 +1,15 @@
-#include <cstdlib>
-#include <cstdio>
-#include <cassert>
+#include <algorithm>
+#include <cmath>
 
+#include "hmr_algorithm.hpp"
 #include "hmr_args.hpp"
+#include "hmr_contig_graph.hpp"
+#include "hmr_global.hpp"
 #include "hmr_path.hpp"
 #include "hmr_ui.hpp"
-#include "hmr_enzyme.hpp"
-#include "hmr_fasta.hpp"
-#include "hmr_mapping.hpp"
-#include "hmr_bin_file.hpp"
-#include "hmr_text_file.hpp"
-#include "hmr_global.hpp"
-
-#include "hmr_contig_graph_type.hpp"
-#include "hmr_contig_graph.hpp"
 
 #include "args_draft.hpp"
-#include "draft_fasta_index.hpp"
-#include "draft_mapping.hpp"
+#include "draft_mappings.hpp"
 
 extern HMR_ARGS opts;
 
@@ -26,271 +18,135 @@ int main(int argc, char* argv[])
     //Parse the arguments.
     parse_arguments(argc, argv);
     //Check the arguments are meet the requirements.
-    if (!opts.fasta) { help_exit(-1, "Missing FASTA file path."); }
-    if (!path_can_read(opts.fasta)) { time_error(-1, "Cannot read FASTA file %s", opts.fasta); }
-    if (opts.mappings.empty()) { help_exit(-1, "Missing Hi-C mapping file path."); }
-    if (!opts.enzyme) { help_exit(-1, "Missing restriction enzyme cutting site."); }
-    if (!opts.output) { help_exit(-1, "Missing output file prefix."); }
-    //Ensure the threads is an even number.
-    opts.threads = ((opts.threads + 1) >> 1) << 1;
-    //Convert the enzyme into sequence.
-    hmr_enzyme_formalize(opts.enzyme, &opts.enzyme_nuc, &opts.enzyme_nuc_length);
+    if (!opts.nodes) { help_exit(-1, "Missing HMR graph contig information file path."); }
+    if (!path_can_read(opts.nodes)) { time_error(-1, "Cannot read HMR graph contig file %s", opts.nodes); }
+    if (!opts.reads) { help_exit(-1, "Missing HMR paired-reads file path."); }
+    if (!path_can_read(opts.reads)) { time_error(-1, "Cannot read HMR paired-reads file %s", opts.reads); }
+    //Print the execution configuration.
+    bool allele_mode = opts.allele_table;
     time_print("Execution configuration:");
-    time_print("\tMinimum map quality: %d", opts.mapq);
-    time_print("\tRestriction enzyme: %s", opts.enzyme_nuc);
-    time_print("\tMinimum restriction enzyme count: %d", opts.min_enzymes);
-    time_print("\tHalf of enzyme range: %d", opts.range);
-    time_print("\tMapping file count: %zu", opts.mappings.size());
-    time_print("\tThreads: %d", opts.threads);
-    time_print("\tFASTA search buffer per thread: %d", opts.fasta_pool);
-    time_print("\tMapping cache buffer size: %d M", opts.mapping_pool);
-    opts.mapping_pool <<= 13;
-    //Load the FASTA and find the enzyme ranges in sequences.
-    HMR_CONTIGS contigs;
-    HMR_CONTIG_INVALID_SET invalid_id_set;
-    ENZYME_RANGES* contig_ranges;
-    size_t max_enzyme_counts = 0;
+    time_print("\tAllele mode: %s", allele_mode ? "Yes" : "No");
+    time_print("\tMinimum edge links: %d", opts.min_links);
+    time_print("\tMinimum RE sites: %d", opts.min_re);
+    time_print("\tMaximum link density: %.2lf", opts.max_density);
+    time_print("\tPaired-reads buffer: %dK", opts.read_buffer_size);
+    opts.read_buffer_size <<= 10;
+    //Load the contig node information.
+    HMR_NODES nodes;
+    time_print("Loading contig information from %s", opts.nodes);
+    hmr_graph_load_contigs(opts.nodes, nodes);
+    time_print("%zu contig(s) information loaded.", nodes.size());
+    int32_t num_of_contigs = static_cast<int32_t>(nodes.size());
+    //Load the invalid node information when necessary.
+    std::vector<int32_t> contig_invalid;
+    contig_invalid.resize(num_of_contigs);
+    //Filter out the minimum REs.
+    time_print("Skip contig(s) with few RE sites and finding the maximum RE site count...");
+    int32_t max_enzyme_count = 0;
+    for (int32_t i = 0; i < num_of_contigs; ++i)
     {
-        //Prepare the enzyme for searching.
-        ENZYME_SEARCH search;
-        contig_draft_search_start(opts.enzyme_nuc, opts.enzyme_nuc_length, search);
-        //Read the FASTA and build the enzyme ranges.
-        DRAFT_NODES_USER node_user{ opts.range, &contigs, &search, NULL, NULL, NULL };
+        //Check the enzyme count reach the limits.
+        contig_invalid[i] = (nodes[i].enzyme_count < opts.min_re);
+        //Find out the maximum enzyme count.
+        max_enzyme_count = hMax(max_enzyme_count, nodes[i].enzyme_count);
+    }
+    time_print("Maximum enzyme counts in contigs: %d", max_enzyme_count);
+    //Load the allele table when necessary.
+    HMR_ALLELE_TABLE allele_table;
+    if (allele_mode)
+    {
+        time_print("Loading allele table from %s", opts.allele_table);
+        hmr_graph_load_allele_table(opts.allele_table, allele_table);
+        time_print("%zu allele record(s) loaded.", allele_table.size());
+    }
+    //Read through the reads file, calculate the pairs.
+    time_print("Reading paired-reads from %s", opts.reads);
+    HMR_EDGE_COUNTERS edges;
+    std::vector<double> node_factors;
+    {
+        EDGE_BUILDER edge_builder{ allele_table, EDGE_COUNTER() };
+        hmr_graph_load_reads(opts.reads, opts.read_buffer_size, draft_mappings_build_edges, &edge_builder);
+        time_print("Paired-reads have been counted, %zu edge(s) generated.", edge_builder.counter.size());
+        //Filter out the valid links.
+        time_print("Removing edges failed to reach the minimum links...");
+        time_print("Calculating the node repetitive factors...");
+        edges.reserve(edge_builder.counter.size());
+        node_factors.resize(num_of_contigs);
+        for (int32_t i = 0; i < num_of_contigs; ++i)
         {
-            //Read the FASTA file and build the enzyme index.
-            RANGE_SEARCH_POOL search_pool(contig_range_search, opts.threads * opts.fasta_pool, opts.threads);
-            node_user.pool = &search_pool;
-            time_print("Searching enzyme in %s", opts.fasta);
-            hmr_fasta_read(opts.fasta, contig_draft_build, &node_user);
+            node_factors[i] = 0.0;
         }
-        contig_draft_search_end(search);
-        //Convert the search node information.
-        contig_ranges = static_cast<ENZYME_RANGES*>(malloc(sizeof(ENZYME_RANGES) * contigs.size()));
-        ENZYME_RANGE_CHAIN* chain_node = node_user.chain_head;
-        int32_t range_index = 0;
-        while (chain_node != NULL)
+        double links_average = 0.0;
+        int64_t max_re_square = hSquare(static_cast<int64_t>(max_enzyme_count));
+        for (const auto& iter : edge_builder.counter)
         {
-            //Calculate the max enzyme count.
-            max_enzyme_counts = hMax(max_enzyme_counts, chain_node->data.counter);
-            //Save the data to contig range.
-            contig_ranges[range_index].counter = chain_node->data.counter;
-            contig_ranges[range_index] = chain_node->data;
-            ++range_index;
-            //Free the chain node.
-            ENZYME_RANGE_CHAIN* next = chain_node->next;
-            free(chain_node);
-            chain_node = next;
-        }
-        if (static_cast<size_t>(range_index) != contigs.size())
-        {
-            time_error(-1, "Unexpected error: contig size and range index size mismatch.");
-        }
-        //Search complete.
-        time_print("%zu contig(s) indexed.", range_index);
-        //Checking which contig is valid, if invalid, generate the invalid list.
-        time_print("Checking invalid contig(s)...");
-        HMR_CONTIG_INVALID_IDS invalid_ids;
-        for (int32_t i = 0; i < range_index; ++i)
-        {
-            contigs[i].enzyme_count = static_cast<int32_t>(contig_ranges[i].counter);
-            if (contig_ranges[i].counter < static_cast<size_t>(opts.min_enzymes))
+            //Skip the edge.
+            int32_t edge_num_of_links = iter.second;
+            if (edge_num_of_links < opts.min_links)
             {
-                invalid_ids.push_back(i);
+                continue;
+            }
+            //Create the edge, count to the factors.
+            HMR_EDGE edge {};
+            edge.data = iter.first;
+            // Calculat the edge weights..
+            double edge_weights = static_cast<double>(max_re_square * edge_num_of_links / nodes[edge.pos.start].enzyme_count / nodes[edge.pos.end].enzyme_count);
+            edges.emplace_back(HMR_EDGE_INFO{ edge.pos.start, edge.pos.end, static_cast<uint64_t>(edge_num_of_links), edge_weights });
+            edges.emplace_back(HMR_EDGE_INFO{ edge.pos.end, edge.pos.start, static_cast<uint64_t>(edge_num_of_links), edge_weights });
+            node_factors[edge.pos.start] += edge_weights;
+            node_factors[edge.pos.end] += edge_weights;
+            links_average += edge_weights;
+        }
+        //Calculate the links average.
+        links_average = 2.0 * links_average / static_cast<double>(num_of_contigs);
+        time_print("%zu edge(s) generated, average links = %.2lf", edges.size(), links_average);
+        time_print("Skip contig(s) with maximum multiplicity...");
+        //Calculate the node factors.
+        int32_t invalid_counter = 0;
+        for (int32_t i = 0; i < num_of_contigs; ++i)
+        {
+            //Calculate the node factors.
+            node_factors[i] /= links_average;
+            //Check whether the node factors is valid or not.
+            contig_invalid[i] |= (static_cast<int32_t>(node_factors[i]) >= opts.max_density);
+            if (contig_invalid[i])
+            {
+                ++invalid_counter;
             }
         }
-        time_print("%zu invalid contig(s) detected.", invalid_ids.size());
-        //Dump the node data to target file.
+        //Extract invalid node vector.
+        HMR_CONTIG_ID_VEC invalid_nodes;
+        invalid_nodes.reserve(invalid_counter);
+        for (int32_t i = 0; i < num_of_contigs; ++i)
         {
-            std::string path_contig = hmr_graph_path_contig(opts.output);
-            time_print("Save contig information to %s", path_contig.data());
-            hmr_graph_save_contigs(path_contig.data(), contigs);
+            if (contig_invalid[i])
+            {
+                invalid_nodes.emplace_back(i);
+            }
+        }
+        //Loop for all the edges, update their weights.
+        time_print("%zu node(s) are skipped.", invalid_nodes.size());
+        if (!invalid_nodes.empty())
+        {
+            //Write the skipped nodes.
+            std::string invalid_node_path = hmr_graph_path_contigs_invalid(opts.output);
+            time_print("Saving invalid contig ids to %s", invalid_node_path.c_str());
+            hmr_graph_save_contig_ids(invalid_node_path.c_str(), invalid_nodes);
             time_print("Done");
         }
-        if (!invalid_ids.empty())
-        {
-            std::string path_invalid = hmr_graph_path_invalid(opts.output);
-            time_print("Save invalid contig indices to %s", path_invalid.data());
-            hmr_graph_save_invalid(path_invalid.data(), invalid_ids);
-            time_print("Done");
-            //Construct the invalid set.
-            invalid_id_set = HMR_CONTIG_INVALID_SET(invalid_ids.begin(), invalid_ids.end());
-        }
     }
-    time_print("Constructing contig name -> id map...");
-    //Map contig name to an index.
-    CONTIG_ID_MAP contig_ids;
-    for (size_t i = 0; i < contigs.size(); ++i)
+    //Based on the node factors, change the graph to directed-graph.
+    time_print("Adjust link densities by repetitive factors...");
+    for (size_t i = 0; i < edges.size(); ++i)
     {
-        contig_ids.insert(std::make_pair(std::string(contigs[i].name, contigs[i].name_size), static_cast<int>(i)));
+        auto& edge_info = edges[i];
+        edge_info.weights = ceil(edge_info.weights / node_factors[edge_info.start]);
     }
-    time_print("Contig name -> id map has been built.");
-    //Prepare the read-pair information output.
-    std::string path_reads = hmr_graph_path_reads(opts.output);
-    FILE* reads_file = NULL;
-    if (!bin_open(path_reads.data(), &reads_file, "wb"))
-    {
-        time_error(-1, "Failed to create read information file %s", path_reads.data());
-    }
-    time_print("Writing reads summary information to %s", path_reads.data());
-    //Initialize filter user and mapping workers.
-    int32_t num_of_workers = opts.threads >> 1;
-    MAPPING_CONTIG_MAP contig_map{ NULL, 0 };
-    MAPPING_FILTER_USER filter_user;
-    filter_user.contig_ranges = contig_ranges;
-    filter_user.mapq = static_cast<uint8_t>(opts.mapq);
-    filter_user.threads = num_of_workers;
-    filter_user.reads_file = reads_file;
-    filter_user.buf_max_size = static_cast<size_t>(opts.mapping_pool * num_of_workers);
-    filter_user.buf_0 = static_cast<MAPPING_INFO*>(malloc(sizeof(MAPPING_INFO) * filter_user.buf_max_size));
-    filter_user.buf_1 = static_cast<MAPPING_INFO*>(malloc(sizeof(MAPPING_INFO) * filter_user.buf_max_size));
-    if (!filter_user.buf_0 || !filter_user.buf_1)
-    {
-        time_error(-1, "Failed to create filter buffer.");
-    }
-    filter_user.activated_0 = true;
-    filter_user.build_buf = filter_user.buf_0;
-    filter_user.build_size = &filter_user.buf_0_size;
-    //Prepare worker data.
-    MAPPING_FILTER_WORKER* workers = new MAPPING_FILTER_WORKER[num_of_workers];
-    if (!workers)
-    {
-        time_error(-1, "No enough memory for creating workers.");
-    }
-    assert(workers);
-    size_t worker_start = 0;
-    std::thread *worker_thread = new std::thread[num_of_workers];
-    if (!worker_thread)
-    {
-        time_error(-1, "Failed to create worker threads.");
-    }
-    for (int32_t i = 0; i < num_of_workers; ++i)
-    {
-        //Clear the worker start.
-        workers[i].start = false;
-        //Configure the worker range.
-        workers[i].buf_start = worker_start;
-        worker_start += opts.mapping_pool;
-        workers[i].buf_end = worker_start;
-        //Initial the worker saving buffer.
-        workers[i].mapping_buf_size = static_cast<size_t>(sizeof(HMR_MAPPING) * opts.mapping_pool);
-        workers[i].mapping_buf = static_cast<char *>(malloc(workers[i].mapping_buf_size));
-        if (!workers[i].mapping_buf)
-        {
-            time_error(-1, "No enough memory for the worker mapping buffer.");
-        }
-        workers[i].mapping_buf_offset = 0;
-        //Start the worker thread.
-        worker_thread[i] = std::thread(mapping_draft_filter_worker, std::ref(filter_user), std::ref(workers[i]), std::ref(contig_map));
-    }
-    //Prepare the draft user information.
-    MAPPING_DRAFT_USER mapping_user{ contig_ids, invalid_id_set, filter_user, workers, contig_map };
-    for (char* mapping_path : opts.mappings)
-    {
-        time_print("Loading reads from %s", mapping_path);
-        //Build the reads mapping.
-        hmr_mapping_read(mapping_path, MAPPING_PROC{ mapping_draft_n_contig, mapping_draft_contig, mapping_draft_read_align }, &mapping_user, num_of_workers);
-        //Recover the mapping array.
-        delete[] contig_map.contig_id_map;
-        //Reset the contig map.
-        contig_map.contig_id_map = NULL;
-        contig_map.contig_idx = 0;
-    }
-    //Let the worker process the rest of the data.
-    if ((*filter_user.build_size) != 0)
-    {
-        //Check whether the threads are running.
-        if (filter_user.is_working)
-        {
-            //Wait for the filter to be complete.
-            std::unique_lock<std::mutex> lock(filter_user.finished_mutex);
-            filter_user.finished_cv.wait(lock, [&] { return !filter_user.is_working; });
-        }
-        //Start the last work.
-        filter_user.proc_buf = filter_user.build_buf;
-        filter_user.proc_size = filter_user.build_size;
-        filter_user.is_working = true;
-        filter_user.finished_counter = 0;
-        //Update the working range.
-        size_t worker_load = ((*filter_user.proc_size) + num_of_workers - 1) / num_of_workers;
-        worker_start = 0;
-        for (int32_t i = 0; i < num_of_workers; ++i)
-        {
-            //Start the worker.
-            workers[i].buf_start = worker_start;
-            worker_start += worker_load;
-            workers[i].buf_end = hMin(worker_start, *filter_user.proc_size);
-            //Start the current worker.
-            workers[i].start = true;
-            workers[i].start_cv.notify_one();
-        }
-        //Wait for worker complete their work.
-        if (filter_user.is_working)
-        {
-            //Wait for the filter to be complete.
-            std::unique_lock<std::mutex> lock(filter_user.finished_mutex);
-            filter_user.finished_cv.wait(lock, [&] { return !filter_user.is_working; });
-        }
-    }
-    //Exit all the workers.
-    filter_user.exit = true;
-    for (int32_t i = 0; i < num_of_workers; ++i)
-    {
-        workers[i].start = true;
-        workers[i].start_cv.notify_one();
-        //Wait for thread exit.
-        worker_thread[i].join();
-    }
-    //Free the workers.
-    delete[] worker_thread;
-    free(filter_user.buf_0);
-    free(filter_user.buf_1);
-    //Reduce the worker result to a single variable.
-    time_print("Contig edges built from %zu file(s).", opts.mappings.size());
-    time_print("Merging edge map...");
-    RAW_EDGE_MAP edges;
-    for (int32_t i = 0; i < num_of_workers; ++i)
-    {
-        //Flush the entire buffer to the file.
-        fwrite(workers[i].mapping_buf, workers[i].mapping_buf_offset, 1, reads_file);
-        free(workers[i].mapping_buf);
-        //Merge the edges together.
-        for (const auto& edge_weight : workers[i].edges)
-        {
-            auto total_edges = edges.find(edge_weight.first);
-            if (total_edges == edges.end())
-            {
-                edges.insert(edge_weight);
-            }
-            else
-            {
-                total_edges->second += edge_weight.second;
-            }
-        }
-    }
-    delete[] workers;
-    fclose(reads_file);
-    time_print("Edge data merged.");
-    //Build the edge map.
-    time_print("Calculating %zu edge weights...", edges.size());
-    //Build the contig edge counters.
-    HMR_EDGE_COUNTERS edge_counters;
-    edge_counters.reserve(edges.size());
-    double max_enzyme_counts_square = static_cast<double>(hSquare(max_enzyme_counts));
-    for (const auto& edge_info : edges)
-    {
-        //Construct the edge counter.
-        HMR_EDGE edge;
-        edge.data = edge_info.first;
-        int32_t pair_count = edge_info.second;
-        double weight = max_enzyme_counts_square / static_cast<double>(contigs[edge.pos.start].enzyme_count) / static_cast<double>(contigs[edge.pos.end].enzyme_count) * pair_count;
-        edge_counters.push_back(HMR_EDGE_INFO{ edge.pos.start, edge.pos.end, pair_count, 0, weight });
-    }
-    time_print("Done");
-    //Dump the edge information into files.
-    std::string path_edge = hmr_graph_path_edge(opts.output);
-    time_print("Save contig edge information to %s", path_edge.data());
-    hmr_graph_save_edge(path_edge.data(), edge_counters);
-    time_print("Done");
+    time_print("%zu edge(s) generated.", edges.size());
+    //Write the edge information to the target file.
+    std::string edge_path = hmr_graph_path_edge(opts.output);
+    time_print("Saving edge information to %s", edge_path.c_str());
+    hmr_graph_save_edges(edge_path.c_str(), edges);
+    time_print("Draft complete.");
     return 0;
 }
-;

@@ -24,6 +24,9 @@
     <ClCompile Include="..\shared\hmr_args.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\shared\hmr_bin_file.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="..\shared\hmr_contig_graph.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -33,7 +36,7 @@
     <ClCompile Include="..\shared\hmr_ui.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\shared\hmr_bin_file.cpp">
+    <ClCompile Include="src\orientation.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -45,6 +48,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_args_types.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\hmr_bin_file.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_contig_graph.hpp">
@@ -59,7 +65,7 @@
     <ClInclude Include="..\shared\hmr_ui.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\shared\hmr_bin_file.hpp">
+    <ClInclude Include="src\orientation.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

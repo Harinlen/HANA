@@ -9,7 +9,7 @@
 
 #include "hmr_bgzf.hpp"
 
-#define WORK_PER_THREAD (512)
+constexpr auto WORK_PER_THREAD = (512);
 
 typedef struct BGZF_HEADER
 {
@@ -88,6 +88,7 @@ void hmr_bgzf_decompress(int32_t thread_count, std::mutex &mutex, std::mutex& co
             }
             //Decompress the data.
             int error = inflate(&strm, Z_FULL_FLUSH);
+            HMR_UNUSED(error)
             //Recover the compress data memory.
             free(pool[i].cdata);
             //Close the zlib stream.
@@ -100,7 +101,7 @@ void hmr_bgzf_decompress(int32_t thread_count, std::mutex &mutex, std::mutex& co
             //Notify the join cv.
             if (*param->worker_completed == thread_count)
             {
-                join_cv.notify_all();
+                join_cv.notify_one();
             }
         }
     }

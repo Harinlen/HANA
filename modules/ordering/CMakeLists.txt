@@ -13,6 +13,7 @@ include_directories(../shared/)
 
 # Construct Binaries.
 add_executable(hana_ordering
+    ../shared/hmr_algorithm.cpp
     ../shared/hmr_args.cpp
     ../shared/hmr_bin_file.cpp
     ../shared/hmr_contig_graph.cpp

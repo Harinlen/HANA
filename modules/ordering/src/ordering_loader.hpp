@@ -3,12 +3,15 @@
 
 #include <cstdint>
 
-#include "hmr_contig_graph_type.hpp"
+#include "ordering_type.hpp"
 
-void ordering_contig_size_proc(int32_t node_count, void* user);
-void ordering_contig_node_proc(int32_t length, int32_t enzyme_count, int32_t name_size, char* name_buff, void* user);
+typedef struct ORDERING_EDGE_LOADER
+{
+    const HMR_CONTIG_ID_VEC& contig_group;
+    ORDERING_COUNTS& edges;
+} ORDERING_EDGE_LOADER;
 
-void ordering_edge_map_size_proc(uint64_t edge_sizes, void* user);
-void ordering_edge_map_data_proc(const HMR_EDGE_INFO* edge_info, void* user);
+void ordering_edge_map_size_proc(uint64_t edge_size, void* user);
+void ordering_edge_map_data_proc(HMR_EDGE_INFO* edges, int32_t edge_size, void* user);
 
 #endif // ORDERING_LOADER_H

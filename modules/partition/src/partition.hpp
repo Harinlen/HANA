@@ -3,21 +3,15 @@
 
 #include "partition_type.hpp"
 
-void partition_create_init_clusters(const HMR_CONTIGS &contigs, CLUSTER_INFO &cluster_info);
+void partition_init_clusters(const HMR_NODES &nodes, const HMR_CONTIG_ID_VEC &invalid_nodes, CLUSTER_INFO &info);
+void partition_free_clusters(CLUSTER_INFO& info);
 
-CONTIG_ID_SET partition_skip_few_res(const HMR_CONTIGS& contigs, const int32_t min_re);
-void partition_skip_empty_links(const MAP_LINK_DENSITY& link_densities, CONTIG_ID_SET &skipped);
+void partition_edge_size_proc(uint64_t edge_size, void* user);
+void partition_edge_proc(HMR_EDGE_INFO* edges, int32_t edge_size, void* user);
 
-void partition_init_factors(int32_t num_of_contigs, LINK_FACTORS& factors_info);
-void partition_free_factors(LINK_FACTORS& factors_info);
-void partition_factors_size_proc(uint64_t, void*);
-void partition_factors_edge_proc(const HMR_EDGE_INFO *edge, void* user);
+void partition_cluster(CLUSTER_INFO& cluster_info, int32_t num_of_groups);
 
-void partition_link_densities_size_proc(uint64_t edge_size, void* user);
-void partition_link_densities_edge_proc(const HMR_EDGE_INFO* edge, void* user);
-
-void partition_remove_skipped_contigs(LINK_FACTORS& contig_factors, CLUSTER_INFO& cluster_info, const char* output_prefix);
-
-void partition_cluster(CLUSTER_INFO &cluster_info, int32_t num_of_groups);
+double partition_contig_cluster_linkage(int32_t contig_id, HMR_CONTIG_ID_VEC* cluster, const GRAPH_LINK_DENSITY& link_density, bool* has_linkage);
+void partition_recover(const std::vector<HMR_CONTIG_ID_VEC*>& clusters, const HMR_CONTIG_ID_VEC& invalid_ids, const int32_t non_info_ratio, CLUSTER_INFO& info);
 
 #endif // PARTITION_H

@@ -1,6 +1,10 @@
 #include <cassert>
 #include <cstring>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
+#include "hmr_algorithm.hpp"
 #include "hmr_bin_file.hpp"
 #include "hmr_global.hpp"
 #include "hmr_ui.hpp"
@@ -8,12 +12,164 @@
 
 #include "hmr_contig_graph.hpp"
 
-std::string hmr_graph_path_contig(const char* prefix)
+template<typename T>
+struct GRAPH_LOAD_BUFFER
 {
-    return std::string(prefix) + ".hmr_contig";
+    T* buf;
+    int32_t buf_size;
+};
+
+template<typename T>
+struct GRAPH_BUF_LOADER
+{
+    GRAPH_LOAD_BUFFER<T> buf_0, buf_1;
+    GRAPH_LOAD_BUFFER<T>* buf_loading, * buf_processing;
+    int32_t buf_size;
+    bool is_loaded, finished;
+    std::mutex wait_processing_mutex, wait_loaded_mutex;
+    std::condition_variable wait_processing_cv, wait_loaded_cv;
+};
+
+template<typename T>
+void hmr_graph_buffer_init(GRAPH_LOAD_BUFFER<T>& buffer, int32_t buf_size)
+{
+    buffer.buf = static_cast<T *>(malloc(sizeof(T) * buf_size));
+    if (!buffer.buf)
+    {
+        time_error(-1, "Failed to allocate memory for reads buffer.");
+    }
+    assert(buffer.buf);
+    buffer.buf_size = buf_size;
 }
 
-void hmr_graph_load_contigs(const char* filepath, CONTIG_SIZE_PROC size_parser, CONTIG_PROC parser, void* user)
+template<typename T>
+void hmr_graph_buffer_free(GRAPH_LOAD_BUFFER<T>& buffer)
+{
+    free(buffer.buf);
+}
+
+template<typename T>
+void hmr_graph_buffer_loader(const char* filepath, GRAPH_BUF_LOADER<T>& loader, void(*size_proc)(uint64_t, void*), void *user)
+{
+    FILE* data_file;
+    if (!bin_open(filepath, &data_file, "rb"))
+    {
+        time_error(-1, "Failed to open buffered data file %s", filepath);
+    }
+    //Check size loader.
+    if (size_proc)
+    {
+        //Read the size from the file.
+        uint64_t item_size;
+        fread(&item_size, sizeof(uint64_t), 1, data_file);
+        size_proc(item_size, user);
+    }
+    //Loop until all the data is loaded.
+    std::unique_lock<std::mutex> processing_lock(loader.wait_processing_mutex);
+    while (!loader.finished)
+    {
+        //Start to load data.
+        loader.buf_loading->buf_size = static_cast<int32_t>(fread(loader.buf_loading->buf, sizeof(T), loader.buf_size, data_file));
+        //Check whether we can still fill all the part of the buffer.
+        loader.finished = loader.buf_loading->buf_size < loader.buf_size;
+        //Set as loaded.
+        loader.is_loaded = true;
+        //Notify the main thread.
+        loader.wait_loaded_cv.notify_one();
+        //Wait for loaded flag to be off.
+        if (!loader.finished)
+        {
+            loader.wait_processing_cv.wait(processing_lock, [&] {return !loader.is_loaded; });
+        }
+    }
+    fclose(data_file);
+}
+
+template<typename T>
+void hmr_graph_load_with_buffer(const char* filepath, int32_t buf_size,
+    void(*size_proc)(uint64_t, void*),
+    void(*proc)(T*, int32_t, void*), 
+    void* user)
+{
+    //Allocate buffer for processing.
+    GRAPH_BUF_LOADER<T> loader;
+    hmr_graph_buffer_init(loader.buf_0, buf_size);
+    hmr_graph_buffer_init(loader.buf_1, buf_size);
+    loader.buf_loading = &loader.buf_0;
+    loader.buf_processing = &loader.buf_1;
+    loader.buf_size = buf_size;
+    loader.is_loaded = false;
+    loader.finished = false;
+    //Loop for all the data is processed.
+    std::thread loader_thread(hmr_graph_buffer_loader<T>, filepath, std::ref(loader), size_proc, user);
+    while (!loader.finished)
+    {
+        //Wait for the loader loading a chunk.
+        std::unique_lock<std::mutex> loaded_lock(loader.wait_loaded_mutex);
+        loader.wait_loaded_cv.wait(loaded_lock, [&] {return loader.is_loaded; });
+        //One chunk is loaded, we flip the buffer, let the thread to loaded next part.
+        auto buf_temp = loader.buf_loading;
+        loader.buf_loading = loader.buf_processing;
+        loader.buf_processing = buf_temp;
+        //Reset the loaded flag.
+        loader.is_loaded = false;
+        loader.wait_processing_cv.notify_one();
+        //Processing the buffer.
+        proc(loader.buf_processing->buf, loader.buf_processing->buf_size, user);
+    }
+    //Process the last part.
+    if (loader.is_loaded)
+    {
+        proc(loader.buf_loading->buf, loader.buf_loading->buf_size, user);
+    }
+    //Close the thread.
+    loader_thread.join();
+    //Free the buffer.
+    hmr_graph_buffer_free(loader.buf_0);
+    hmr_graph_buffer_free(loader.buf_1);
+}
+
+std::string hmr_graph_path_contigs(const char* prefix)
+{
+    return std::string(prefix) + ".hmr_nodes";
+}
+
+std::string hmr_graph_path_reads(const char* prefix)
+{
+    return std::string(prefix) + ".hmr_reads";
+}
+
+std::string hmr_graph_path_nodes_invalid(const char* contig_path)
+{
+    return std::string(contig_path) + "_invalid";
+}
+
+std::string hmr_graph_path_edge(const char* prefix)
+{
+    return std::string(prefix) + ".hmr_edges";
+}
+
+std::string hmr_graph_path_contigs_invalid(const char* prefix)
+{
+    return std::string(prefix) + ".hmr_nodes_invalid";
+}
+
+std::string hmr_graph_path_allele_table(const char* prefix)
+{
+    return std::string(prefix) + ".hmr_allele_table";
+}
+
+std::string hmr_graph_path_cluster_name(const char* prefix, const int32_t index, const int32_t total)
+{
+    return std::string(prefix) + "_" + std::to_string(index) + "g" + std::to_string(total) + ".hmr_group";
+}
+
+std::string hmr_graph_path_chromo_name(const char* seq_path)
+{
+    return std::string(path_basename(seq_path) + ".hmr_chromo");
+}
+
+void hmr_graph_load_contigs(const char* filepath, HMR_NODES& nodes, HMR_NODE_NAMES* names)
 {
     //Load the file path.
     FILE* contig_file;
@@ -21,81 +177,29 @@ void hmr_graph_load_contigs(const char* filepath, CONTIG_SIZE_PROC size_parser, 
     {
         time_error(-1, "Failed to open contig file %s", filepath);
     }
-    //Read the file of the size.
+    //Read the information.
     int32_t contig_size;
     fread(&contig_size, sizeof(int32_t), 1, contig_file);
-    if(size_parser)
+    nodes.resize(contig_size);
+    fread(nodes.data(), sizeof(HMR_NODE), contig_size, contig_file);
+    //Check whether we need to read the names or not.
+    if (names)
     {
-        size_parser(contig_size, user);
-    }
-    //Now parsing the parser.
-    int32_t length, enzyme_count, name_size, name_buff_size = 0;
-    char* name_buff = NULL;
-    for (int32_t i = 0; i < contig_size; ++i)
-    {
-        //Read the size.
-        fread(&length, sizeof(int32_t), 1, contig_file);
-        fread(&enzyme_count, sizeof(int32_t), 1, contig_file);
-        //Read the name.
-        fread(&name_size, sizeof(int32_t), 1, contig_file);
-        if (name_buff_size < name_size)
+        HMR_NODE_NAMES& node_names = *names;
+        node_names.resize(contig_size);
+        for (int32_t i = 0; i < contig_size; ++i)
         {
-            if (name_buff)
-            {
-                char* update_buff = static_cast<char*>(realloc(name_buff, name_size + 1));
-                assert(update_buff);
-                name_buff = update_buff;
-            }
-            else
-            {
-                name_buff = static_cast<char*>(malloc(name_size + 1));
-            }
-            name_buff_size = name_size + 1;
+            fread(&node_names[i].name_size, sizeof(int32_t), 1, contig_file);
+            node_names[i].name = static_cast<char*>(malloc(node_names[i].name_size+1));
+            assert(node_names[i].name);
+            fread(node_names[i].name, sizeof(char), node_names[i].name_size, contig_file);
+            node_names[i].name[node_names[i].name_size] = '\0';
         }
-        //Read the name.
-        assert(name_buff);
-        fread(name_buff, sizeof(char), name_size, contig_file);
-        //Call the parser function.
-        parser(length, enzyme_count, name_size, name_buff, user);
     }
-    //Close the file.
     fclose(contig_file);
-    //Clear the buff.
-    if (name_buff)
-    {
-        free(name_buff);
-    }
 }
 
-void hmr_graph_restore_nodes_size_proc(int32_t node_count, void* user)
-{
-    HMR_CONTIGS* contigs = reinterpret_cast<HMR_CONTIGS*>(user);
-    //Reserve the contig count items.
-    contigs->reserve(node_count);
-}
-
-//length, enzyme_count, name_size, name_buff, user
-void hmr_graph_restore_nodes_node_proc(int32_t length, int32_t enzyme_count, int32_t name_size, char* name_buff, void* user)
-{
-    HMR_CONTIGS* contigs = reinterpret_cast<HMR_CONTIGS*>(user);
-    //Create contig node info.
-    char* contig_name = static_cast<char*>(malloc(static_cast<size_t>(name_size + 2)));
-    assert(contig_name);
-#ifdef _MSC_VER
-    strncpy_s(contig_name, name_size + 1, name_buff, name_size);
-#else
-    strncpy(contig_name, name_buff, name_size);
-#endif
-    contig_name[name_size] = '\0';
-    contigs->push_back(HMR_CONTIG{ length, enzyme_count, name_size, contig_name });
-}
-
-void hmr_graph_restore_contig_data(const char* filepath, HMR_CONTIGS* contigs)
-{
-    hmr_graph_load_contigs(filepath, hmr_graph_restore_nodes_size_proc, hmr_graph_restore_nodes_node_proc, contigs);
-}
-
-bool hmr_graph_save_contigs_bin(const char* filepath, const HMR_CONTIGS& contigs)
+bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& nodes)
 {
     //Load the file path.
     FILE* contig_file;
@@ -104,253 +208,166 @@ bool hmr_graph_save_contigs_bin(const char* filepath, const HMR_CONTIGS& contigs
         time_error(-1, "Failed to save contig file %s", filepath);
     }
     //Write the file of the size.
-    int32_t contig_size = static_cast<int32_t>(contigs.size());
+    int32_t contig_size = static_cast<int32_t>(nodes.contigs.size());
     fwrite(&contig_size, sizeof(int32_t), 1, contig_file);
     //Now write contig information.
+    fwrite(nodes.contigs.data(), sizeof(HMR_NODE), nodes.contigs.size(), contig_file);
     for (int32_t i = 0; i < contig_size; ++i)
     {
-        const HMR_CONTIG& contig = contigs[i];
+        const HMR_NODE_NAME& contig_name = nodes.names[i];
         //Write the contig size.
-        fwrite(&contig.length, sizeof(int32_t), 1, contig_file);
-        fwrite(&contig.enzyme_count, sizeof(int32_t), 1, contig_file);
-        //Write the contig name.
-        fwrite(&contig.name_size, sizeof(int32_t), 1, contig_file);
-        fwrite(contig.name, sizeof(char), contig.name_size, contig_file);
+        fwrite(&contig_name.name_size, sizeof(int32_t), 1, contig_file);
+        fwrite(contig_name.name, sizeof(char), contig_name.name_size, contig_file);
     }
     //Close the file.
     fclose(contig_file);
     return true;
 }
 
-bool hmr_graph_save_contigs_text(const char* filepath, const HMR_CONTIGS& contigs)
+void hmr_graph_load_contig_ids(const char* filepath, HMR_CONTIG_ID_VEC& contig_ids)
 {
-    time_error(-1, "Not supporting saving text format.");
-    return false;
+    FILE* contig_ids_file;
+    if (!bin_open(filepath, &contig_ids_file, "rb"))
+    {
+        time_error(-1, "Failed to load contig ids from %s", filepath);
+    }
+    //Read the number of contig ids.
+    int32_t id_sizes;
+    fread(&id_sizes, sizeof(int32_t), 1, contig_ids_file);
+    contig_ids.resize(id_sizes);
+    fread(contig_ids.data(), sizeof(int32_t), id_sizes, contig_ids_file);
+    fclose(contig_ids_file);
 }
 
-bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& contigs, bool binary_format)
+bool hmr_graph_save_contig_ids(const char* filepath, const HMR_CONTIG_ID_VEC& contig_ids)
 {
-    //Save the contig information.
-    if (binary_format)
-    {
-        //Save as binary file, for better performance.
-        return hmr_graph_save_contigs_bin(filepath, contigs);
-    }
-    //Save as text file for debugging and editing.
-    return hmr_graph_save_contigs_text(filepath, contigs);
-}
-
-std::string hmr_graph_path_reads(const char* prefix)
-{
-    return std::string(prefix) + ".hmr_reads";
-}
-
-void hmr_graph_load_reads(const char *filepath, size_t buf_unit_size, READS_PROC proc, void *user)
-{
-    //Load the reads file.
-    FILE *reads_file;
-    if (!bin_open(filepath, &reads_file, "rb"))
-    {
-        time_error(-1, "Failed to open reads file %s", filepath);
-    }
-    //Read the reads size information.
-    assert(buf_unit_size > 0);
-    const size_t bytes_unit = sizeof(HMR_MAPPING), buffer_size = buf_unit_size * bytes_unit;
-    char *buffer = static_cast<char *>(malloc(buffer_size));
-    assert(buffer);
-    size_t bytes_readed;
-    while((bytes_readed = fread(buffer, 1, buffer_size, reads_file)) > 0)
-    {
-        size_t bytes_offset = 0;
-        char *mapping_buffer = buffer, *mapping_end = buffer + bytes_readed;
-        while(mapping_buffer < mapping_end)
-        {
-            proc(reinterpret_cast<HMR_MAPPING *>(mapping_buffer + bytes_offset), user);
-            mapping_buffer += bytes_unit;
-        }
-    }
-    free(buffer);
-    //Close the reads file.
-    fclose(reads_file);
-}
-
-std::string hmr_graph_path_edge(const char* prefix)
-{
-    return std::string(prefix) + ".hmr_edge";
-}
-
-void hmr_graph_load_edge(const char* filepath, EDGE_SIZE_PROC size_parser, EDGE_PROC parser, void* user, size_t buffer_size)
-{
-    //Load the file path.
-    FILE* edge_file;
-    if (!bin_open(filepath, &edge_file, "rb"))
-    {
-        time_error(-1, "Failed to open edge information file %s", filepath);
-    }
-    //Read the edge size information.
-    uint64_t edge_sizes = 0;
-    fread(&edge_sizes, sizeof(uint64_t), 1, edge_file);
-    size_parser(edge_sizes, user);
-    buffer_size = hMin(buffer_size, edge_sizes);
-    char* edge_buffer = static_cast<char*>(malloc(buffer_size * sizeof(HMR_EDGE_INFO)));
-    if (!edge_buffer)
-    {
-        time_error(-1, "Failed to create edge info buffer.");
-    }
-    assert(edge_buffer);
-    size_t buffer_readed = fread(edge_buffer, sizeof(HMR_EDGE_INFO), buffer_size, edge_file);
-    while (buffer_readed > 0)
-    {
-        char* edge_info = edge_buffer;
-        for (size_t i = 0; i < buffer_readed; ++i)
-        {
-            parser(reinterpret_cast<HMR_EDGE_INFO*>(edge_info), user);
-            edge_info += sizeof(HMR_EDGE_INFO);
-        }
-        buffer_readed = fread(edge_buffer, sizeof(HMR_EDGE_INFO), buffer_size, edge_file);
-    }
-    free(edge_buffer);
-    //Close the file.
-    fclose(edge_file);
-}
-
-bool hmr_graph_save_edge(const char* filepath, const HMR_EDGE_COUNTERS& edges, size_t buffer_size)
-{
-    //Open the contig output file to write the data.
-    FILE* edge_file;
-    if (!bin_open(filepath, &edge_file, "wb"))
-    {
-        time_error(-1, "Failed to save edge information from %s", filepath);
-        return false;
-    }
-    //Write the edge information.
-    uint64_t edge_sizes = static_cast<uint64_t>(edges.size());
-    fwrite(&edge_sizes, sizeof(uint64_t), 1, edge_file);
-    fwrite(edges.data(), sizeof(HMR_EDGE_INFO), edge_sizes, edge_file);
-    fclose(edge_file);
-    return true;
-}
-
-std::string hmr_graph_path_invalid(const char* prefix)
-{
-    return std::string(prefix) + ".hmr_invalid";
-}
-
-bool hmr_graph_save_invalid_bin(const char* filepath, const HMR_CONTIG_INVALID_IDS& ids)
-{
-    FILE* ids_file;
-    if (!bin_open(filepath, &ids_file, "wb"))
-    {
-        time_error(-1, "Failed to save invalid contig ids to file %s", filepath);
-        return false;
-    }
-    //Write the number of invalid ids.
-    size_t id_sizes = ids.size();
-    fwrite(&id_sizes, sizeof(size_t), 1, ids_file);
-    for (const int32_t& id : ids)
-    {
-        fwrite(&id, sizeof(int32_t), 1, ids_file);
-    }
-    fclose(ids_file);
-    return true;
-}
-
-bool hmr_graph_save_invalid(const char* filepath, const HMR_CONTIG_INVALID_IDS& ids, bool binary_format)
-{
-    //Save the contig information.
-    if (binary_format)
-    {
-        //Save as binary file, for better performance.
-        return hmr_graph_save_invalid_bin(filepath, ids);
-    }
-    //Save as text file for debugging and editing.
-    return false;
-}
-
-
-bool hmr_graph_load_partition(const char *filepath, CONTIG_ID_VECTOR &contig_ids)
-{
-    FILE *group_id_file;
-    if (!bin_open(filepath, &group_id_file, "rb"))
-    {
-        time_error(-1, "Failed to load chromosome partition ids from file %s", filepath);
-        return false;
-    }
-    //Read the total groups.
-    size_t group_size;
-    fread(&group_size, sizeof(size_t), 1, group_id_file);
-    contig_ids.reserve(group_size);
-    //Read the contig id.
-    int32_t contig_id;
-    while(group_size--)
-    {
-        fread(&contig_id, sizeof(int32_t), 1, group_id_file);
-        contig_ids.push_back(contig_id);
-    }
-    fclose(group_id_file);
-    return true;
-}
-
-bool hmr_graph_save_partition(const char* filepath, const CONTIG_ID_VECTOR& contig_ids)
-{
-    FILE* group_id_file;
-    if (!bin_open(filepath, &group_id_file, "wb"))
+    FILE* contig_ids_file;
+    if (!bin_open(filepath, &contig_ids_file, "wb"))
     {
         time_error(-1, "Failed to save contig ids to file %s", filepath);
         return false;
     }
-    //Write the total groups.
-    size_t group_size = contig_ids.size();
-    fwrite(&group_size, sizeof(size_t), 1, group_id_file);
-    //Write the group size of the partition.
-    for (int32_t contig_id: contig_ids)
-    {
-        //Write the allele group size.
-        fwrite(&contig_id, sizeof(int32_t), 1, group_id_file);
-    }
-    fclose(group_id_file);
+    //Write the number of contig ids.
+    int32_t id_sizes = static_cast<int32_t>(contig_ids.size());
+    fwrite(&id_sizes, sizeof(int32_t), 1, contig_ids_file);
+    fwrite(contig_ids.data(), sizeof(int32_t), id_sizes, contig_ids_file);
+    fclose(contig_ids_file);
     return true;
 }
 
-bool hmr_graph_load_chromosome(const char *filepath, CHROMOSOME_PROC proc, void *user)
+void hmr_graph_load_edges(const char* filepath, int32_t buf_size, GRAPH_EDGE_SIZE_PROC size_proc, GRAPH_EDGE_PROC proc, void* user)
 {
-    FILE *chromosome_file;
+    hmr_graph_load_with_buffer(filepath, buf_size, size_proc, proc, user);
+}
+
+bool hmr_graph_save_edges(const char* filepath, const HMR_EDGE_COUNTERS& edges)
+{
+    FILE* edge_file;
+    if (!bin_open(filepath, &edge_file, "wb"))
+    {
+        time_error(-1, "Failed to save edges to file %s", filepath);
+    }
+    //Write the number of edges.
+    uint64_t edge_sizes = static_cast<uint64_t>(edges.size());
+    fwrite(&edge_sizes, sizeof(uint64_t), 1, edge_file);
+    //Write the edge data.
+    fwrite(edges.data(), sizeof(HMR_EDGE_INFO), edge_sizes, edge_file);
+    fclose(edge_file);
+    return false;
+}
+
+bool hmr_graph_allele_conflict(const HMR_ALLELE_TABLE& allele_table, int32_t contig_id_a, int32_t contig_id_b)
+{
+    //Try to find allele record of contig a.
+    const auto a_iter = allele_table.find(contig_id_a);
+    //If there is no record for contig a, it means it is okay with everyone.
+    if (a_iter == allele_table.end())
+    {
+        return false;
+    }
+    //If the contig b appears in a's record, it conflicts.
+    return hmr_in_ordered_vector(contig_id_b, a_iter->second);
+}
+
+void hmr_graph_load_allele_table(const char* filepath, HMR_ALLELE_TABLE& allele_table)
+{
+    FILE* allele_table_file;
+    if (!bin_open(filepath, &allele_table_file, "rb"))
+    {
+        time_error(-1, "Failed to open allele table file %s", filepath);
+    }
+    //Read the record counts.
+    int32_t record_sizes;
+    fread(&record_sizes, sizeof(int32_t), 1, allele_table_file);
+    allele_table.reserve(record_sizes);
+    for (int32_t i = 0; i < record_sizes; ++i)
+    {
+        //Read the contig id.
+        int32_t contig_id, record_size;
+        fread(&contig_id, sizeof(int32_t), 1, allele_table_file);
+        fread(&record_size, sizeof(int32_t), 1, allele_table_file);
+        //Read the conflict ids.
+        HMR_CONTIG_ID_VEC conflict_ids;
+        conflict_ids.resize(record_size);
+        fread(conflict_ids.data(), sizeof(int32_t), record_size, allele_table_file);
+        allele_table.insert(std::make_pair(contig_id, conflict_ids));
+    }
+}
+
+bool hmr_graph_save_allele_table(const char* filepath, const HMR_ALLELE_TABLE& allele_table)
+{
+    FILE* allele_table_file;
+    if (!bin_open(filepath, &allele_table_file, "wb"))
+    {
+        time_error(-1, "Failed to save allele table to file %s", filepath);
+        return false;
+    }
+    //Write the record counts.
+    int32_t record_sizes = static_cast<int32_t>(allele_table.size());
+    fwrite(&record_sizes, sizeof(int32_t), 1, allele_table_file);
+    for (const auto &record : allele_table)
+    {
+        fwrite(&record.first, sizeof(int32_t), 1, allele_table_file);
+        int32_t record_size = static_cast<int32_t>(record.second.size());
+        fwrite(&record_size, sizeof(int32_t), 1, allele_table_file);
+        fwrite(record.second.data(), sizeof(int32_t), record_size, allele_table_file);
+    }
+    return true;
+}
+
+void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC proc, void* user)
+{
+    hmr_graph_load_with_buffer(filepath, buf_size, NULL, proc, user);
+}
+
+void hmr_graph_load_chromosome(const char* filepath, CHROMOSOME_CONTIGS& seq)
+{
+    FILE* chromosome_file;
     if (!bin_open(filepath, &chromosome_file, "rb"))
     {
-        time_error(-1, "Failed to open chromosome contig info file %s", filepath);
-        return false;
+        time_error(-1, "Failed to load contig ids from %s", filepath);
     }
-    //Read the contig size.
-    size_t contig_size;
-    fread(&contig_size, sizeof(size_t), 1, chromosome_file);
-    //Read the chromosome contig info.
-    HMR_DIRECTED_CONTIG contig_buffer;
-    for(size_t i=0; i<contig_size; ++i)
-    {
-        fread(&contig_buffer, sizeof(HMR_DIRECTED_CONTIG), 1, chromosome_file);
-        proc(contig_buffer, user);
-    }
+    //Read the number of contig ids.
+    int32_t contig_sizes;
+    fread(&contig_sizes, sizeof(int32_t), 1, chromosome_file);
+    seq.resize(contig_sizes);
+    fread(seq.data(), sizeof(HMR_DIRECTED_CONTIG), contig_sizes, chromosome_file);
     fclose(chromosome_file);
-    return true;
 }
 
-bool hmr_graph_save_chromosome(const char *filepath, const CHROMOSOME_CONTIGS &chromosome_contigs)
+bool hmr_graph_save_chromosome(const char* filepath, const CHROMOSOME_CONTIGS& seq)
 {
-    FILE *chromosome_file;
+    FILE* chromosome_file;
     if (!bin_open(filepath, &chromosome_file, "wb"))
     {
-        time_error(-1, "Failed to save chromosome contig info to file %s", filepath);
+        time_error(-1, "Failed to save contig ids to file %s", filepath);
         return false;
     }
-    //Write the contig size.
-    size_t contig_size = chromosome_contigs.size();
-    fwrite(&contig_size, sizeof(size_t), 1, chromosome_file);
-    //Write the chromosome contig info.
-    for(size_t i=0; i<contig_size; ++i)
-    {
-        //Construct the structure.
-        fwrite(&chromosome_contigs[i], sizeof(HMR_DIRECTED_CONTIG), 1, chromosome_file);
-    }
+    //Write the number of contig ids.
+    int32_t id_sizes = static_cast<int32_t>(seq.size());
+    fwrite(&id_sizes, sizeof(int32_t), 1, chromosome_file);
+    fwrite(seq.data(), sizeof(HMR_DIRECTED_CONTIG), id_sizes, chromosome_file);
     fclose(chromosome_file);
     return true;
+
 }

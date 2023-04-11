@@ -1,6 +1,8 @@
 #ifndef HMR_GLOBAL_H
 #define HMR_GLOBAL_H
 
+#include <list>
+#include <vector>
 #include <unordered_set>
 
 typedef struct THREAD_BLOCK
@@ -25,5 +27,16 @@ constexpr inline bool hInSet(const T &x, const std::unordered_set<T> &s) { retur
 
 template <typename T>
 constexpr inline const T hSquare(const T &x) { return x * x; };
+
+template <typename T>
+inline void hMoveListToVector(std::list<T>& t_list, std::vector<T>& t_vector)
+{
+    t_vector.reserve(t_list.size());
+    while (!t_list.empty())
+    {
+        t_vector.emplace_back(t_list.front());
+        t_list.pop_front();
+    }
+}
 
 #endif // HMR_GLOBAL_H
