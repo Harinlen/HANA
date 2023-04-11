@@ -231,9 +231,6 @@ void bam_extractor_free(BAM_EXTRACTOR& extractor)
     mapping_worker_sync_free(extractor.sync);
 }
 
-FILE* extract_dump;
-std::vector<std::string> names;
-
 void extract_mapping_bam_worker(int32_t id, MAPPING_WORKER &worker, BAM_EXTRACTOR &extractor)
 {
     MAPPING_WORKER_SYNC& sync = extractor.sync;
@@ -263,7 +260,6 @@ void extract_mapping_bam_worker(int32_t id, MAPPING_WORKER &worker, BAM_EXTRACTO
             {
                 continue;
             }
-            fprintf(extract_dump, "%s\t%d\t%s\t%d\n", names[ref_index].c_str(), mapping_info.pos, names[next_ref_index].c_str(), mapping_info.next_pos);
             //Save the mapping info to the buffer.
             if (mapping_buffer_is_full(worker.valid_buffer))
             {
@@ -292,9 +288,6 @@ void extract_bam_num_of_contigs(uint32_t num_of_contigs, void* user)
     {
         bam_extractor->bam_id_map[i] = -1;
     }
-
-    names.resize(num_of_contigs);
-    fopen_s(&extract_dump, "E:\\Downloads\\sampleDataForALLHiC\\Sspon-hind3\\hana_extract_dump.txt", "w");
 }
 
 void extract_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
@@ -302,7 +295,6 @@ void extract_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
     BAM_EXTRACTOR* bam_extractor = static_cast<BAM_EXTRACTOR*>(user);
     //Set the contig.
     bam_extractor->bam_id_map[bam_extractor->bam_contig_id] = extract_contig_index_get(*bam_extractor->contig_index_map, std::string(name, name_length));
-    names[bam_extractor->bam_contig_id] = std::string(name, name_length);
     ++bam_extractor->bam_contig_id;
 }
 
@@ -388,7 +380,6 @@ void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FIL
             mapping_buffer_dump(worker_buffer[i].valid_buffer, reads_file);
             worker_free(worker_buffer[i]);
         }
-        fclose(extract_dump);
         bam_extractor_free(bam_extractor);
         delete[] workers;
         delete[] worker_buffer;

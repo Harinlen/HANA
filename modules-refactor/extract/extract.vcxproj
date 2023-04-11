@@ -141,6 +141,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\shared\hmr_algorithm.cpp" />
     <ClCompile Include="..\shared\hmr_args.cpp" />
     <ClCompile Include="..\shared\hmr_bam.cpp" />
     <ClCompile Include="..\shared\hmr_bgzf.cpp" />
@@ -162,6 +163,7 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\shared\hmr_algorithm.hpp" />
     <ClInclude Include="..\shared\hmr_args.hpp" />
     <ClInclude Include="..\shared\hmr_args_types.hpp" />
     <ClInclude Include="..\shared\hmr_bam.hpp" />

@@ -49,8 +49,8 @@ int main(int argc, char* argv[])
     //Construct the check flag.
     uint16_t check_flag = 0xFFFF;
     time_print("\tChecking flag settings...");
-    if (opts.skip_flag) { check_flag &= ~CHECK_FLAG_FLAG; time_print("\t\tSkip FLAG checking"); }
-    if (opts.skip_range) { check_flag &= ~CHECK_FLAG_RANGE; time_print("\t\tSkip range checking"); }
+    if (opts.skip_flag) { check_flag &= ~CHECK_FLAG_FLAG; time_print("\tSkip FLAG checking."); }
+    if (opts.skip_range) { check_flag &= ~CHECK_FLAG_RANGE; time_print("\tSkip range checking."); }
     //Load the FASTA and find the enzyme ranges in sequences.
     HMR_CONTIGS nodes;
     CONTIG_ENZYME_RANGES contig_enzyme_ranges;

@@ -59,6 +59,7 @@ typedef struct HMR_MAPPING
 typedef std::vector<int32_t> HMR_CONTIG_ID_VEC;
 typedef std::unordered_set<int32_t> HMR_CONTIG_ID_SET;
 typedef std::list<int32_t> HMR_CONTIG_ID_CHAIN;
-typedef std::unordered_map<int32_t, HMR_CONTIG_ID_SET> HMR_ALLELE_TABLE;
+typedef std::unordered_map<int32_t, HMR_CONTIG_ID_VEC> HMR_ALLELE_TABLE;
+typedef std::unordered_map<int32_t, HMR_CONTIG_ID_SET> HMR_ALLELE_MAP;
 
 #endif // HMR_CONTIG_GRAPH_TYPE_H

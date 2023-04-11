@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "hmr_global.hpp"
 #include "hmr_text_file.hpp"
 #include "hmr_ui.hpp"
@@ -17,14 +19,14 @@ std::list<size_t> allele_find_tab(char* line, size_t len)
     return stops;
 }
 
-void allele_insert_record(HMR_ALLELE_TABLE& allele_table, int32_t id_a, int32_t id_b)
+void allele_insert_record(HMR_ALLELE_MAP& allele_map, int32_t id_a, int32_t id_b)
 {
-    auto iter_a = allele_table.find(id_a);
-    if (iter_a == allele_table.end())
+    auto iter_a = allele_map.find(id_a);
+    if (iter_a == allele_map.end())
     {
         HMR_CONTIG_ID_SET a_set;
         a_set.insert(id_b);
-        allele_table.insert(std::make_pair(id_a, a_set));
+        allele_map.insert(std::make_pair(id_a, a_set));
     }
     else
     {
@@ -44,7 +46,7 @@ HMR_ALLELE_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP* in
     ssize_t line_size = 0;
     char* line = NULL;
     size_t len = 0;
-    HMR_ALLELE_TABLE allele_table;
+    HMR_ALLELE_MAP allele_map;
     while ((line_size = (line_handle.parser(&line, &len, &line_handle.buf, line_handle.file_handle))) != -1)
     {
         //Finding all the '\t'.
@@ -92,12 +94,22 @@ HMR_ALLELE_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP* in
             for (size_t j = i + 1; j < contig_ids.size(); ++j)
             {
                 int32_t id_j = contig_ids[j];
-                allele_insert_record(allele_table, id_i, id_j);
-                allele_insert_record(allele_table, id_j, id_i);
+                allele_insert_record(allele_map, id_i, id_j);
+                allele_insert_record(allele_map, id_j, id_i);
             }
         }
     }
     //Close the file.
     text_close_read_line(&line_handle);
+    //Transfer the allele table into allele map.
+    HMR_ALLELE_TABLE allele_table;
+    for (const auto& iter : allele_map)
+    {
+        int32_t contig_id = iter.first;
+        //Convert the set into vector.
+        HMR_CONTIG_ID_VEC conflict_vec(iter.second.begin(), iter.second.end());
+        std::sort(conflict_vec.begin(), conflict_vec.end());
+        allele_table.insert(std::make_pair(contig_id, conflict_vec));
+    }
     return allele_table;
 }

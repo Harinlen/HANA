@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 
 #include "hmr_algorithm.hpp"
 #include "hmr_args.hpp"
@@ -32,9 +33,8 @@ int main(int argc, char* argv[])
     opts.read_buffer_size <<= 10;
     //Load the contig node information.
     HMR_NODES nodes;
-    HMR_NODE_NAMES node_names;
     time_print("Loading contig information from %s", opts.nodes);
-    hmr_graph_load_contigs(opts.nodes, nodes, &node_names);
+    hmr_graph_load_contigs(opts.nodes, nodes);
     time_print("%zu contig(s) information loaded.", nodes.size());
     int32_t num_of_contigs = static_cast<int32_t>(nodes.size());
     //Load the invalid node information when necessary.
@@ -103,25 +103,17 @@ int main(int argc, char* argv[])
         time_print("Skip contig(s) with maximum multiplicity...");
         //Calculate the node factors.
         int32_t invalid_counter = 0;
-        FILE* factor_skip;
-        fopen_s(&factor_skip, "E:\\Downloads\\sampleDataForALLHiC\\Sspon-hind3\\hana_contig_factor_skip.txt", "w");
         for (int32_t i = 0; i < num_of_contigs; ++i)
         {
-            if (contig_invalid[i])
-            {
-                ++invalid_counter;
-                continue;
-            }
             //Calculate the node factors.
             node_factors[i] /= links_average;
             //Check whether the node factors is valid or not.
-            contig_invalid[i] = (static_cast<int32_t>(node_factors[i]) >= opts.max_density);
+            contig_invalid[i] |= (static_cast<int32_t>(node_factors[i]) >= opts.max_density);
             if (contig_invalid[i])
             {
                 ++invalid_counter;
             }
         }
-        fclose(factor_skip);
         //Extract invalid node vector.
         HMR_CONTIG_ID_VEC invalid_nodes;
         invalid_nodes.reserve(invalid_counter);
@@ -134,6 +126,14 @@ int main(int argc, char* argv[])
         }
         //Loop for all the edges, update their weights.
         time_print("%zu node(s) are skipped.", invalid_nodes.size());
+        if (!invalid_nodes.empty())
+        {
+            //Write the skipped nodes.
+            std::string invalid_node_path = hmr_graph_path_contigs_invalid(opts.output);
+            time_print("Saving invalid contig ids to %s", invalid_node_path.c_str());
+            hmr_graph_save_contig_ids(invalid_node_path.c_str(), invalid_nodes);
+            time_print("Done");
+        }
     }
     //Based on the node factors, change the graph to directed-graph.
     time_print("Adjust link densities by repetitive factors...");
@@ -141,17 +141,7 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < edges.size(); ++i)
     {
         auto& edge_info = edges[i];
-        if (contig_invalid[edge_info.start] || contig_invalid[edge_info.end])
-        {
-            ++edge_removed;
-            continue;
-        }
-        edge_info.weights /= node_factors[edge_info.start];
-        if (edge_removed)
-        {
-            //Need to move the current info to n previous.
-            edges[i - edge_removed] = edge_info;
-        }
+        edge_info.weights = ceil(edge_info.weights / node_factors[edge_info.start]);
     }
     edges.resize(edges.size() - edge_removed);
     time_print("%zu edge(s) generated.", edges.size());
@@ -160,14 +150,5 @@ int main(int argc, char* argv[])
     time_print("Saving edge information to %s", edge_path.c_str());
     hmr_graph_save_edges(edge_path.c_str(), edges);
     time_print("Draft complete.");
-
-    FILE* edge_dump;
-    fopen_s(&edge_dump, "E:\\Downloads\\sampleDataForALLHiC\\Sspon-hind3\\hana_edge_info.txt", "w");
-    for (const auto& edge : edges)
-    {
-        fprintf(edge_dump, "%s\t%s\t%lld\n", node_names[edge.start].name, node_names[edge.end].name, static_cast<int64_t>(edge.weights));
-    }
-    fclose(edge_dump);
-
     return 0;
 }
