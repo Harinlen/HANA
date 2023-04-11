@@ -56,6 +56,7 @@ typedef void (*HMR_READS_PROC)(HMR_MAPPING* mapping, int32_t buf_size, void *use
 void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC proc, void *user);
 
 /* Chromosome sequence operations */
+void hmr_graph_load_chromosome(const char* filepath, CHROMOSOME_CONTIGS& seq);
 bool hmr_graph_save_chromosome(const char* filepath, const CHROMOSOME_CONTIGS& seq);
 
 #endif // HMR_CONTIG_GRAPH_H

@@ -8,4 +8,9 @@ Now we expect to work in the following way:
 - [x] `partition` to generate group nodes. (Input: `.hmr_nodes` and `.hmr_edges`, Output: node group files `.hmr_group`)
 - [x] `ordering` to sort the nodes. (Input: `.hmr_nodes`, `.hmr_edges` and `.hmr_group`, Output: node sequence files `.hmr_seq`)
 - [x] `orientation` to decide the orientation of the node groups. (Input: `.hmr_nodes`, `.hmr_reads` and `.hmr_seq`, Output: chromosome sequence files `.hmr_chromo`)
-- [ ] `build` to generate results. (Input: `.hmr_nodes`, `.fasta`, `.hmr_chromo`, Output: `.fasta`)
+- [x] `build` to generate results. (Input: `.hmr_nodes`, `.fasta`, `.hmr_chromo`, Output: `.fasta`)
+
+Allele checklist:
+- [x] Apply allele constraints partition.
+- [ ] Apply allele table filtering
+- [ ] Apply non-best filtering

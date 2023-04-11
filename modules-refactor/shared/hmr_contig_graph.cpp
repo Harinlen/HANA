@@ -339,6 +339,21 @@ void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC
     hmr_graph_load_with_buffer(filepath, buf_size, NULL, proc, user);
 }
 
+void hmr_graph_load_chromosome(const char* filepath, CHROMOSOME_CONTIGS& seq)
+{
+    FILE* chromosome_file;
+    if (!bin_open(filepath, &chromosome_file, "rb"))
+    {
+        time_error(-1, "Failed to load contig ids from %s", filepath);
+    }
+    //Read the number of contig ids.
+    int32_t contig_sizes;
+    fread(&contig_sizes, sizeof(int32_t), 1, chromosome_file);
+    seq.resize(contig_sizes);
+    fread(seq.data(), sizeof(HMR_DIRECTED_CONTIG), contig_sizes, chromosome_file);
+    fclose(chromosome_file);
+}
+
 bool hmr_graph_save_chromosome(const char* filepath, const CHROMOSOME_CONTIGS& seq)
 {
     FILE* chromosome_file;
