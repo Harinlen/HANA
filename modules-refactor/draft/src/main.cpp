@@ -137,13 +137,11 @@ int main(int argc, char* argv[])
     }
     //Based on the node factors, change the graph to directed-graph.
     time_print("Adjust link densities by repetitive factors...");
-    size_t edge_removed = 0;
     for (size_t i = 0; i < edges.size(); ++i)
     {
         auto& edge_info = edges[i];
         edge_info.weights = ceil(edge_info.weights / node_factors[edge_info.start]);
     }
-    edges.resize(edges.size() - edge_removed);
     time_print("%zu edge(s) generated.", edges.size());
     //Write the edge information to the target file.
     std::string edge_path = hmr_graph_path_edge(opts.output);

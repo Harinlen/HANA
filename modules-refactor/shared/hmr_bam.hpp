@@ -15,6 +15,7 @@ typedef struct BAM_BLOCK_HEADER
     int32_t next_refID;
     int32_t next_pos;
     int32_t tlen;
+    void* data;
 } BAM_BLOCK_HEADER;
 
 typedef void (*BAM_N_CONTIG)(uint32_t num_of_contigs, void* user);

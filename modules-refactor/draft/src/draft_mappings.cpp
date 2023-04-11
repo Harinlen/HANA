@@ -23,11 +23,12 @@ void draft_mappings_build_edges(HMR_MAPPING* mapping, int32_t buf_size, void* us
     for (int32_t i = 0; i < buf_size; ++i)
     {
         const HMR_MAPPING& mapping_info = mapping[i];
-        //Check whether the IDs are in the allele table.
-        /*if (hmr_graph_allele_conflict(edge_builder->allele_table, mapping_info.refID, mapping_info.next_refID))
+        // -- Allele table filtering --
+        // If these two contigs appears in the same line of allele table, this reads-pair is not considered.
+        if (hmr_graph_allele_conflict(edge_builder->allele_table, mapping_info.refID, mapping_info.next_refID))
         {
             continue;
-        }*/
+        }
         //Increase the counter on the edge.
         HMR_EDGE edge = hmr_graph_edge(mapping_info.refID, mapping_info.next_refID);
         draft_mapping_count_edge(edge_builder->counter, edge.data);
