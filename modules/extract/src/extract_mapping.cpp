@@ -5,6 +5,7 @@
 
 #include "hmr_global.hpp"
 #include "hmr_bam.hpp"
+#include "hmr_pairs.hpp"
 #include "hmr_path.hpp"
 #include "hmr_ui.hpp"
 
@@ -298,7 +299,7 @@ void extract_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
     ++bam_extractor->bam_contig_id;
 }
 
-void extract_bam_read_align(size_t block_id, const BAM_BLOCK_HEADER* bam_block, void* user)
+void extract_bam_read_align(size_t, const BAM_BLOCK_HEADER* bam_block, void* user)
 {
     BAM_EXTRACTOR* bam_extractor = static_cast<BAM_EXTRACTOR*>(user);
     //Fill the data to build extractor.
@@ -328,8 +329,31 @@ void extract_bam_read_align(size_t block_id, const BAM_BLOCK_HEADER* bam_block, 
     };
     ++filling->buffer_offset;
 }
-
 // ------ BAM Workers End ------
+
+// ------ Pairs Worker ------
+typedef struct PAIR_EXTRACTOR
+{
+    FILE *reads_file;
+    CONTIG_INDEX_MAP* index_map;
+} PAIR_EXTRACTOR;
+
+void extract_pairs_proc(const char *ref, size_t ref_len, const char *next_ref, size_t next_ref_len,
+                        int32_t pos, int32_t next_pos, const char *types, void *user)
+{
+    PAIR_EXTRACTOR *pair_extractor = static_cast<PAIR_EXTRACTOR *>(user);
+    //Search the ref and next ref.
+    CONTIG_INDEX_MAP* index_map = pair_extractor->index_map;
+    auto ref_iter = index_map->find(std::string(ref, ref_len)),
+            next_iter = index_map->find(std::string(next_ref, next_ref_len));
+    if(ref_iter == index_map->end() || next_iter == index_map->end())
+    {
+        return;
+    }
+    //Extract the index of the ref and next ref.
+
+}
+// ------ Pairs Worker End ------
 
 void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FILE* reads_file, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint16_t check_flag, uint8_t mapq, int32_t thread_buffer_size, int32_t threads)
 {
@@ -383,5 +407,14 @@ void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FIL
         bam_extractor_free(bam_extractor);
         delete[] workers;
         delete[] worker_buffer;
+        return;
     }
+//    if (path_ends_with(filepath, ".pairs"))
+//    {
+//        PAIR_EXTRACTOR pair_extractor { reads_file, index_map };
+//        //Initialize the pair parser.
+//        hmr_pairs_read(filepath, extract_pairs_proc, &pair_extractor);
+//    }
+    time_print("Unknown file type %s", filepath);
+    return;
 }

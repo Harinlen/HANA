@@ -51,26 +51,48 @@ int main(int argc, char* argv[])
         max_enzyme_count = hMax(max_enzyme_count, nodes[i].enzyme_count);
     }
     time_print("Maximum enzyme counts in contigs: %d", max_enzyme_count);
-    //Load the allele table when necessary.
-    HMR_ALLELE_TABLE allele_table;
-    if (allele_mode)
-    {
-        time_print("Loading allele table from %s", opts.allele_table);
-        hmr_graph_load_allele_table(opts.allele_table, allele_table);
-        time_print("%zu allele record(s) loaded.", allele_table.size());
-    }
     //Read through the reads file, calculate the pairs.
     time_print("Reading paired-reads from %s", opts.reads);
     HMR_EDGE_COUNTERS edges;
     std::vector<double> node_factors;
     {
-        EDGE_BUILDER edge_builder{ allele_table, EDGE_COUNTER() };
-        hmr_graph_load_reads(opts.reads, opts.read_buffer_size, draft_mappings_build_edges, &edge_builder);
-        time_print("Paired-reads have been counted, %zu edge(s) generated.", edge_builder.counter.size());
+        EDGE_COUNTER edge_pairs;
+        hmr_graph_load_reads(opts.reads, opts.read_buffer_size, draft_mappings_build_edges, &edge_pairs);
+        time_print("Paired-reads have been counted, %zu edge(s) generated.", edge_pairs.size());
+        //Load the allele table when necessary.
+        if (allele_mode)
+        {
+            //Read the allele table.
+            HMR_CONTIG_ID_TABLE allele_table;
+            time_print("Loading allele table from %s", opts.allele_table);
+            hmr_graph_load_contig_table(opts.allele_table, allele_table);
+            time_print("%zu allele record(s) loaded.", allele_table.size());
+            //Loop through the allele table, remove the edge pairs.
+            for(const auto &conflict_row: allele_table)
+            {
+                int32_t row_size = static_cast<int32_t>(conflict_row.size());
+                if(row_size < 2)
+                {
+                    continue;
+                }
+                for(int32_t i=0; i<row_size-1; ++i)
+                {
+                    for(int32_t j=i+1; j<row_size; ++j)
+                    {
+                        HMR_EDGE allele_edge = hmr_graph_edge(conflict_row[i], conflict_row[j]);
+                        auto edge_iter = edge_pairs.find(allele_edge.data);
+                        if(edge_iter != edge_pairs.end())
+                        {
+                            edge_pairs.erase(edge_iter);
+                        }
+                    }
+                }
+            }
+        }
         //Filter out the valid links.
         time_print("Removing edges failed to reach the minimum links...");
         time_print("Calculating the node repetitive factors...");
-        edges.reserve(edge_builder.counter.size());
+        edges.reserve(edge_pairs.size());
         node_factors.resize(num_of_contigs);
         for (int32_t i = 0; i < num_of_contigs; ++i)
         {
@@ -78,7 +100,7 @@ int main(int argc, char* argv[])
         }
         double links_average = 0.0;
         int64_t max_re_square = hSquare(static_cast<int64_t>(max_enzyme_count));
-        for (const auto& iter : edge_builder.counter)
+        for (const auto& iter : edge_pairs)
         {
             //Skip the edge.
             int32_t edge_num_of_links = iter.second;

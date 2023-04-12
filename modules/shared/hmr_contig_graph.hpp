@@ -40,16 +40,18 @@ bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& nodes);
 void hmr_graph_load_contig_ids(const char* filepath, HMR_CONTIG_ID_VEC& contig_ids);
 bool hmr_graph_save_contig_ids(const char* filepath, const HMR_CONTIG_ID_VEC& contig_ids);
 
+/* Node table operations */
+void hmr_graph_load_contig_table(const char *filepath, HMR_CONTIG_ID_TABLE &contig_table);
+bool hmr_graph_save_contig_table(const char *filepath, const HMR_CONTIG_ID_TABLE &contig_table);
+
+/* Convert the contig table to allele map */
+void hmr_graph_allele_map_init(HMR_ALLELE_MAP &allele_map, const HMR_CONTIG_ID_TABLE &allele_table);
+
 /* Edge vector operations */
 typedef void (*GRAPH_EDGE_SIZE_PROC)(uint64_t edge_size, void* user);
 typedef void (*GRAPH_EDGE_PROC)(HMR_EDGE_INFO* edges, int32_t edge_size, void* user);
 void hmr_graph_load_edges(const char* filepath, int32_t buf_size, GRAPH_EDGE_SIZE_PROC size_proc, GRAPH_EDGE_PROC proc, void *user);
 bool hmr_graph_save_edges(const char* filepath, const HMR_EDGE_COUNTERS& edges);
-
-/* Allele table operations */
-bool hmr_graph_allele_conflict(const HMR_ALLELE_TABLE& allele_table, int32_t contig_id_a, int32_t contig_id_b);
-void hmr_graph_load_allele_table(const char* filepath, HMR_ALLELE_TABLE& allele_table);
-bool hmr_graph_save_allele_table(const char* filepath, const HMR_ALLELE_TABLE& allele_table);
 
 /* Paired-reads operations */
 typedef void (*HMR_READS_PROC)(HMR_MAPPING* mapping, int32_t buf_size, void *user);

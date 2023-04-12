@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <thread>
@@ -224,6 +225,14 @@ bool hmr_graph_save_contigs(const char* filepath, const HMR_CONTIGS& nodes)
     return true;
 }
 
+inline void hmr_graph_read_contig_ids(HMR_CONTIG_ID_VEC& contig_ids, FILE *file)
+{
+    int32_t id_sizes;
+    fread(&id_sizes, sizeof(int32_t), 1, file);
+    contig_ids.resize(id_sizes);
+    fread(contig_ids.data(), sizeof(int32_t), id_sizes, file);
+}
+
 void hmr_graph_load_contig_ids(const char* filepath, HMR_CONTIG_ID_VEC& contig_ids)
 {
     FILE* contig_ids_file;
@@ -232,11 +241,16 @@ void hmr_graph_load_contig_ids(const char* filepath, HMR_CONTIG_ID_VEC& contig_i
         time_error(-1, "Failed to load contig ids from %s", filepath);
     }
     //Read the number of contig ids.
-    int32_t id_sizes;
-    fread(&id_sizes, sizeof(int32_t), 1, contig_ids_file);
-    contig_ids.resize(id_sizes);
-    fread(contig_ids.data(), sizeof(int32_t), id_sizes, contig_ids_file);
+    hmr_graph_read_contig_ids(contig_ids, contig_ids_file);
     fclose(contig_ids_file);
+}
+
+inline void hmr_graph_write_contig_ids(const HMR_CONTIG_ID_VEC& contig_ids, FILE *file)
+{
+    //Write the number of contig ids.
+    int32_t id_sizes = static_cast<int32_t>(contig_ids.size());
+    fwrite(&id_sizes, sizeof(int32_t), 1, file);
+    fwrite(contig_ids.data(), sizeof(int32_t), id_sizes, file);
 }
 
 bool hmr_graph_save_contig_ids(const char* filepath, const HMR_CONTIG_ID_VEC& contig_ids)
@@ -247,12 +261,90 @@ bool hmr_graph_save_contig_ids(const char* filepath, const HMR_CONTIG_ID_VEC& co
         time_error(-1, "Failed to save contig ids to file %s", filepath);
         return false;
     }
-    //Write the number of contig ids.
-    int32_t id_sizes = static_cast<int32_t>(contig_ids.size());
-    fwrite(&id_sizes, sizeof(int32_t), 1, contig_ids_file);
-    fwrite(contig_ids.data(), sizeof(int32_t), id_sizes, contig_ids_file);
+    hmr_graph_write_contig_ids(contig_ids, contig_ids_file);
     fclose(contig_ids_file);
     return true;
+}
+
+void hmr_graph_load_contig_table(const char *filepath, HMR_CONTIG_ID_TABLE &contig_table)
+{
+    FILE* contig_table_file;
+    if (!bin_open(filepath, &contig_table_file, "rb"))
+    {
+        time_error(-1, "Failed to load contig table from %s", filepath);
+    }
+    //Read the number of contig ids.
+    int32_t num_of_rows;
+    fread(&num_of_rows, sizeof(int32_t), 1, contig_table_file);
+    contig_table.reserve(num_of_rows);
+    for(int32_t i=0; i<num_of_rows; ++i)
+    {
+        HMR_CONTIG_ID_VEC row;
+        hmr_graph_read_contig_ids(row, contig_table_file);
+        contig_table.push_back(row);
+    }
+    fclose(contig_table_file);
+}
+
+bool hmr_graph_save_contig_table(const char *filepath, const HMR_CONTIG_ID_TABLE &contig_table)
+{
+    FILE* contig_table_file;
+    if (!bin_open(filepath, &contig_table_file, "wb"))
+    {
+        time_error(-1, "Failed to save contig table to file %s", filepath);
+        return false;
+    }
+    int32_t num_of_rows = static_cast<int32_t>(contig_table.size());
+    fwrite(&num_of_rows, sizeof(int32_t), 1, contig_table_file);
+    for(const auto &row: contig_table)
+    {
+        hmr_graph_write_contig_ids(row, contig_table_file);
+    }
+    fclose(contig_table_file);
+    return true;
+}
+
+void hmr_graph_allele_insert_record(std::unordered_map<int32_t, HMR_CONTIG_ID_SET>& allele_set_map, int32_t id_a, int32_t id_b)
+{
+    auto iter_a = allele_set_map.find(id_a);
+    if (iter_a == allele_set_map.end())
+    {
+        HMR_CONTIG_ID_SET a_set;
+        a_set.insert(id_b);
+        allele_set_map.insert(std::make_pair(id_a, a_set));
+    }
+    else
+    {
+        iter_a->second.insert(id_b);
+    }
+}
+
+void hmr_graph_allele_map_init(HMR_ALLELE_MAP &allele_map, const HMR_CONTIG_ID_TABLE &allele_table)
+{
+    //Go through the allele map
+    std::unordered_map<int32_t, HMR_CONTIG_ID_SET> allele_set_map;
+    for(const auto &contig_ids: allele_table)
+    {
+        for (size_t i = 0; i < contig_ids.size() - 1; ++i)
+        {
+            int32_t id_i = contig_ids[i];
+            for (size_t j = i + 1; j < contig_ids.size(); ++j)
+            {
+                int32_t id_j = contig_ids[j];
+                hmr_graph_allele_insert_record(allele_set_map, id_i, id_j);
+                hmr_graph_allele_insert_record(allele_set_map, id_j, id_i);
+            }
+        }
+    }
+    //Convert the record into set.
+    for (const auto& iter : allele_set_map)
+    {
+        int32_t contig_id = iter.first;
+        //Convert the set into vector.
+        HMR_CONTIG_ID_VEC conflict_vec(iter.second.begin(), iter.second.end());
+        std::sort(conflict_vec.begin(), conflict_vec.end());
+        allele_map.insert(std::make_pair(contig_id, conflict_vec));
+    }
 }
 
 void hmr_graph_load_edges(const char* filepath, int32_t buf_size, GRAPH_EDGE_SIZE_PROC size_proc, GRAPH_EDGE_PROC proc, void* user)
@@ -274,65 +366,6 @@ bool hmr_graph_save_edges(const char* filepath, const HMR_EDGE_COUNTERS& edges)
     fwrite(edges.data(), sizeof(HMR_EDGE_INFO), edge_sizes, edge_file);
     fclose(edge_file);
     return false;
-}
-
-bool hmr_graph_allele_conflict(const HMR_ALLELE_TABLE& allele_table, int32_t contig_id_a, int32_t contig_id_b)
-{
-    //Try to find allele record of contig a.
-    const auto a_iter = allele_table.find(contig_id_a);
-    //If there is no record for contig a, it means it is okay with everyone.
-    if (a_iter == allele_table.end())
-    {
-        return false;
-    }
-    //If the contig b appears in a's record, it conflicts.
-    return hmr_in_ordered_vector(contig_id_b, a_iter->second);
-}
-
-void hmr_graph_load_allele_table(const char* filepath, HMR_ALLELE_TABLE& allele_table)
-{
-    FILE* allele_table_file;
-    if (!bin_open(filepath, &allele_table_file, "rb"))
-    {
-        time_error(-1, "Failed to open allele table file %s", filepath);
-    }
-    //Read the record counts.
-    int32_t record_sizes;
-    fread(&record_sizes, sizeof(int32_t), 1, allele_table_file);
-    allele_table.reserve(record_sizes);
-    for (int32_t i = 0; i < record_sizes; ++i)
-    {
-        //Read the contig id.
-        int32_t contig_id, record_size;
-        fread(&contig_id, sizeof(int32_t), 1, allele_table_file);
-        fread(&record_size, sizeof(int32_t), 1, allele_table_file);
-        //Read the conflict ids.
-        HMR_CONTIG_ID_VEC conflict_ids;
-        conflict_ids.resize(record_size);
-        fread(conflict_ids.data(), sizeof(int32_t), record_size, allele_table_file);
-        allele_table.insert(std::make_pair(contig_id, conflict_ids));
-    }
-}
-
-bool hmr_graph_save_allele_table(const char* filepath, const HMR_ALLELE_TABLE& allele_table)
-{
-    FILE* allele_table_file;
-    if (!bin_open(filepath, &allele_table_file, "wb"))
-    {
-        time_error(-1, "Failed to save allele table to file %s", filepath);
-        return false;
-    }
-    //Write the record counts.
-    int32_t record_sizes = static_cast<int32_t>(allele_table.size());
-    fwrite(&record_sizes, sizeof(int32_t), 1, allele_table_file);
-    for (const auto &record : allele_table)
-    {
-        fwrite(&record.first, sizeof(int32_t), 1, allele_table_file);
-        int32_t record_size = static_cast<int32_t>(record.second.size());
-        fwrite(&record_size, sizeof(int32_t), 1, allele_table_file);
-        fwrite(record.second.data(), sizeof(int32_t), record_size, allele_table_file);
-    }
-    return true;
 }
 
 void hmr_graph_load_reads(const char* filepath, int32_t buf_size, HMR_READS_PROC proc, void* user)

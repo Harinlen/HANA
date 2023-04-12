@@ -17,6 +17,6 @@ HMR_ARG_PARSER args_parser = {
     { {"-q", "--mapq"}, "MAPQ", "BAM minimum mapping quality (default: 40)", LAMBDA_PARSE_ARG {opts.mapq = atoi(arg[0]); }},
     { {"--search-buffer"}, "SEARCH_BUF_SIZE", "FASTA searching buffer size per thread (default: 32)", LAMBDA_PARSE_ARG { opts.fasta_pool = atoi(arg[0]); }},
     { {"--mapping-buffer"}, "MAP_BUF_SIZE", "Mapping parse buffer size (unit: K, default: 512)", LAMBDA_PARSE_ARG { opts.mapping_pool = atoi(arg[0]); }},
-    { {"--no-flag"}, "", "Skip the flag checking", LAMBDA_PARSE_ARG { opts.skip_flag = true; }},
-    { {"--no-range"}, "", "Skip the enzyme range checking", LAMBDA_PARSE_ARG { opts.skip_range = true; }},
+    { {"--no-flag"}, "", "Skip the flag checking", LAMBDA_PARSE_ARG { (void)arg; opts.skip_flag = true; }},
+    { {"--no-range"}, "", "Skip the enzyme range checking", LAMBDA_PARSE_ARG { (void)arg; opts.skip_range = true; }},
 };

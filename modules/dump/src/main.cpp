@@ -54,8 +54,9 @@ int dump_bam(int argc, char* argv[])
         printf("Failed to open bam file %s\n", filepath);
         exit(-1);
     }
+    std::string output_path = std::string(filepath) + ".txt";
     FILE* dump_file;
-    if (!text_open_write(opts.output, &dump_file))
+    if (!text_open_write(output_path.c_str(), &dump_file))
     {
         time_error(-1, "Failed to open output file.");
         exit(-1);
@@ -84,8 +85,9 @@ int dump_nodes(int argc, char* argv[])
         printf("Failed to open nodes file %s\n", filepath);
         exit(-1);
     }
+    std::string output_path = std::string(filepath) + ".txt";
     FILE* dump_file;
-    if (!text_open_write(opts.output, &dump_file))
+    if (!text_open_write(output_path.c_str(), &dump_file))
     {
         time_error(-1, "Failed to open output file.");
         exit(-1);
@@ -128,8 +130,9 @@ int dump_group(int argc, char* argv[])
         printf("Failed to open node file %s\n", opts.nodes);
         exit(-1);
     }
+    std::string output_path = std::string(filepath) + ".txt";
     FILE* dump_file;
-    if (!text_open_write(opts.output, &dump_file))
+    if (!text_open_write(output_path.c_str(), &dump_file))
     {
         time_error(-1, "Failed to open output file.");
     }

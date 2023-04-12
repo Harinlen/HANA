@@ -20,6 +20,7 @@ SOURCES += \
     ../shared/hmr_enzyme.cpp \
     ../shared/hmr_fasta.cpp \
     ../shared/hmr_gz.cpp \
+    ../shared/hmr_pairs.cpp \
     ../shared/hmr_path.cpp \
     ../shared/hmr_seq.cpp \
     ../shared/hmr_text_file.cpp \
@@ -46,6 +47,7 @@ HEADERS += \
     ../shared/hmr_fasta.hpp \
     ../shared/hmr_global.hpp \
     ../shared/hmr_gz.hpp \
+    ../shared/hmr_pairs.hpp \
     ../shared/hmr_path.hpp \
     ../shared/hmr_seq.hpp \
     ../shared/hmr_text_file.hpp \

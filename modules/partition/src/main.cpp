@@ -46,17 +46,24 @@ int main(int argc, char* argv[])
         }
     }
     //Load the allele table when needed.
-    HMR_ALLELE_TABLE allele_table;
+    HMR_ALLELE_MAP allele_map;
     if (opts.allele)
     {
         time_print("Loading allele table from %s", opts.allele);
-        hmr_graph_load_allele_table(opts.allele, allele_table);
+        HMR_CONTIG_ID_TABLE allele_table;
+        hmr_graph_load_contig_table(opts.allele, allele_table);
+        //Convert the allele table into allele map.
+        hmr_graph_allele_map_init(allele_map, allele_table);
         time_print("Allele table loaded.");
     }
     //Construct the partition clusters.
     CLUSTER_INFO partition_info;
     time_print("Initialize the partition information...");
     partition_init_clusters(nodes, invalid_nodes, partition_info);
+    if (opts.allele)
+    {
+        partition_info.allele_map = &allele_map;
+    }
     hmr_graph_load_edges(opts.edges, opts.read_buffer_size, partition_edge_size_proc, partition_edge_proc, &partition_info);
     time_print("%zu merge operations built.", partition_info.merge_size);
     //Start clustering.

@@ -104,10 +104,10 @@ int main(int argc, char* argv[])
     if(opts.allele)
     {
         time_print("Building allele table from %s", opts.allele);
-        HMR_ALLELE_TABLE allele_table = extract_allele_table(opts.allele, &contig_index_map);
+        HMR_CONTIG_ID_TABLE allele_table = extract_allele_table(opts.allele, &contig_index_map);
         std::string path_allele_table = hmr_graph_path_allele_table(opts.output);
         time_print("Saving allele table to %s", path_allele_table.data());
-        hmr_graph_save_allele_table(path_allele_table.data(), allele_table);
+        hmr_graph_save_contig_table(path_allele_table.data(), allele_table);
         time_print("Done");
     }
     //Prepare the read-pair information output.

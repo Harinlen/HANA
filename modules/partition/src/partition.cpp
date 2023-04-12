@@ -28,7 +28,7 @@ bool vector_has_intersection(const HMR_CONTIG_ID_VEC& group_a, const HMR_CONTIG_
     return false;
 }
 
-bool partition_is_merge_valid(HMR_CONTIG_ID_VEC* group_a, HMR_CONTIG_ID_VEC* group_b, const HMR_ALLELE_TABLE& allele_table)
+bool partition_is_merge_valid(HMR_CONTIG_ID_VEC* group_a, HMR_CONTIG_ID_VEC* group_b, const HMR_ALLELE_MAP& allele_map)
 {
     HMR_CONTIG_ID_VEC* cluster_small, * cluster_large;
     if (group_a->size() < group_b->size())
@@ -44,8 +44,8 @@ bool partition_is_merge_valid(HMR_CONTIG_ID_VEC* group_a, HMR_CONTIG_ID_VEC* gro
     //Go through the smaller cluster.
     for (int32_t contig_index : *cluster_small)
     {
-        auto allele_record_iter = allele_table.find(contig_index);
-        if (allele_record_iter == allele_table.end())
+        auto allele_record_iter = allele_map.find(contig_index);
+        if (allele_record_iter == allele_map.end())
         {
             continue;
         }
@@ -80,7 +80,8 @@ void partition_init_clusters(const HMR_NODES& nodes, const HMR_CONTIG_ID_VEC& in
     for (size_t i = 0; i < num_of_contigs; ++i)
     {
         //Check whether the node is marked as invalid.
-        if (invalid_pos < num_of_invalids && i == invalid_nodes[invalid_pos])
+        if (invalid_pos < num_of_invalids &&
+                static_cast<int32_t>(i) == invalid_nodes[invalid_pos])
         {
             info.belongs[i] = NULL;
             ++invalid_pos;
@@ -105,7 +106,7 @@ void partition_free_clusters(CLUSTER_INFO& info)
     {
         delete[] info.merge;
     }
-    for (int32_t i = 0; i < info.cluster_size; ++i)
+    for (size_t i = 0; i < info.cluster_size; ++i)
     {
         delete info.clusters[i];
     }
@@ -208,7 +209,7 @@ void partition_cluster(CLUSTER_INFO& cluster_info, int32_t num_of_groups)
         HMR_CONTIG_ID_VEC* group_b = op.b, * group_a = op.a;
         bool op_accept = true;
         //Check is this operation validate the allele table.
-        if (cluster_info.allele_table && !partition_is_merge_valid(group_a, group_b, *cluster_info.allele_table))
+        if (cluster_info.allele_map && !partition_is_merge_valid(group_a, group_b, *cluster_info.allele_map))
         {
             //Mark the merge operation is not accepted.
             op_accept = false;

@@ -5,6 +5,6 @@
 
 #include "extract_index_map.hpp"
 
-HMR_ALLELE_TABLE extract_allele_table(const char *filepath, CONTIG_INDEX_MAP *index_map);
+HMR_CONTIG_ID_TABLE extract_allele_table(const char *filepath, CONTIG_INDEX_MAP *index_map);
 
 #endif // EXTRACT_ALLELE_H
