@@ -69,11 +69,125 @@ int dump_bam(int argc, char* argv[])
     return 0;
 }
 
+typedef struct DUMP_READS
+{
+    FILE *file;
+    HMR_CONTIGS node_infos;
+} DUMP_READS;
+
+void dump_reads_proc(HMR_MAPPING* mapping, int32_t buf_size, void *user)
+{
+    DUMP_READS *d = static_cast<DUMP_READS*>(user);
+    for(int32_t i=0; i<buf_size; ++i)
+    {
+        fprintf(d->file, "%s\t%d\t%s\t%d\n",
+                d->node_infos.names[mapping[i].refID].name, mapping[i].pos,
+                d->node_infos.names[mapping[i].next_refID].name, mapping[i].next_pos);
+    }
+}
+
+int dump_reads(int argc, char* argv[])
+{
+    if (argc < 2)
+    {
+        printf("Usage: group [group file path] -n [nodes file path]\n");
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open group file %s\n", filepath);
+        exit(-1);
+    }
+    if (!opts.nodes)
+    {
+        printf("Please provide the node file path.\n");
+        exit(-1);
+    }
+    if (!path_can_read(opts.nodes))
+    {
+        printf("Failed to open node file %s\n", opts.nodes);
+        exit(-1);
+    }
+    std::string output_path = std::string(filepath) + ".txt";
+    FILE* dump_file;
+    if (!text_open_write(output_path.c_str(), &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+    }
+    //Load the contigs.
+    DUMP_READS user;
+    user.file = dump_file;
+    hmr_graph_load_contigs(opts.nodes, user.node_infos.contigs, &user.node_infos.names);
+    //Load the reads.
+    hmr_graph_load_reads(filepath, 512 << 10, dump_reads_proc, &user);
+    fclose(dump_file);
+    return 0;
+}
+
+void dump_edges_size_proc(uint64_t, void*)
+{
+}
+
+void dump_edges_proc(HMR_EDGE_INFO* edges, int32_t edge_size, void* user)
+{
+    DUMP_READS *d = static_cast<DUMP_READS*>(user);
+    for(int32_t i=0; i<edge_size; ++i)
+    {
+        fprintf(d->file, "%s\t%s\t%lu\t%lf\n",
+                d->node_infos.names[edges[i].start].name, d->node_infos.names[edges[i].end].name,
+                edges[i].pairs, edges[i].weights);
+    }
+}
+
+int dump_edges(int argc, char* argv[])
+{
+    if (argc < 2)
+    {
+        printf("Usage: edges [edges file path] -n [nodes file path]\n");
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open group file %s\n", filepath);
+        exit(-1);
+    }
+    if (!opts.nodes)
+    {
+        printf("Please provide the node file path.\n");
+        exit(-1);
+    }
+    if (!path_can_read(opts.nodes))
+    {
+        printf("Failed to open node file %s\n", opts.nodes);
+        exit(-1);
+    }
+    std::string output_path = std::string(filepath) + ".txt";
+    FILE* dump_file;
+    if (!text_open_write(output_path.c_str(), &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+    }
+    //Load the contigs.
+    DUMP_READS user;
+    user.file = dump_file;
+    hmr_graph_load_contigs(opts.nodes, user.node_infos.contigs, &user.node_infos.names);
+    //Load the edges.
+    hmr_graph_load_edges(filepath, 512 << 10, dump_edges_size_proc, dump_edges_proc, &user);
+    fclose(dump_file);
+    return 0;
+}
+
 int dump_nodes(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        printf("Usage: nodes [nodes file path] -o [dump file path]\n");
+        printf("Usage: nodes [nodes file path]\n");
         exit(-1);
     }
     //Read the arguments.
@@ -154,6 +268,8 @@ std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
     {"bam", dump_bam},
     {"nodes", dump_nodes},
     {"group", dump_group},
+    {"reads", dump_reads},
+    {"edges", dump_edges},
 };
 
 void help_exit(const char *s = NULL)

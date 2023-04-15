@@ -24,4 +24,4 @@ add_executable(hana_ordering
     src/ordering_descent.cpp
     src/ordering_loader.cpp
 )
-
+target_link_libraries(hana_ordering pthread)

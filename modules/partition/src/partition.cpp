@@ -312,9 +312,9 @@ void partition_cluster(CLUSTER_INFO& cluster_info, int32_t num_of_groups)
         //UI hints.
         ++op_counter;
         //Analyze the current clusters if enough merges occured.
-        if (op_counter > non_skipped && non_singleton_clusters <= num_of_groups)
+        if (op_counter > non_skipped && non_singleton_clusters <= static_cast<size_t>(num_of_groups))
         {
-            if (non_singleton_clusters == num_of_groups)
+            if (non_singleton_clusters == static_cast<size_t>(num_of_groups))
             {
                 break;
             }

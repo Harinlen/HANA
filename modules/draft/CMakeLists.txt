@@ -23,4 +23,4 @@ add_executable(hana_draft
     src/draft_mappings.cpp
     src/main.cpp
 )
-
+target_link_libraries(hana_draft pthread)

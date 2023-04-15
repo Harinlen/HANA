@@ -22,6 +22,23 @@ inline HMR_EDGE hmr_graph_edge(int32_t edge_node_a, int32_t edge_node_b)
     return edge;
 }
 
+inline uint64_t hmr_graph_edge_data(int32_t edge_node_a, int32_t edge_node_b)
+{
+    uint64_t edge_a = static_cast<uint64_t>(edge_node_a),
+            edge_b = static_cast<uint64_t>(edge_node_b);
+    if (edge_node_a < edge_node_b)
+    {
+        return (edge_a << 32) | edge_b;
+    }
+    return (edge_b << 32) | edge_a;
+}
+
+inline void hmr_graph_edge_pos(uint64_t data, int32_t& start, int32_t& end)
+{
+    start = static_cast<int32_t>(data >> 32);
+    end = static_cast<int32_t>(data & 0xFFFF);
+}
+
 /* Graph path generated functions */
 std::string hmr_graph_path_contigs(const char* prefix);
 std::string hmr_graph_path_edge(const char* prefix);
