@@ -62,7 +62,7 @@ void help_exit(int exit_code, const char* msg, ...)
         bool not_first = false;
         std::vector<std::string> arg_names(info.opts.begin(), info.opts.end());
         std::sort(arg_names.begin(), arg_names.end(),
-            [](std::string& lhs, std::string& rhs) {
+            [](const std::string& lhs, const std::string& rhs) {
                 return lhs.length() < rhs.length();
             });
         //Check whether we have option.
