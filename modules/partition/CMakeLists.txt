@@ -22,4 +22,5 @@ add_executable(hana_partition
     src/main.cpp
     src/partition.cpp
 )
+target_link_libraries(hana_partition pthread)
 

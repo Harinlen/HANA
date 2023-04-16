@@ -22,4 +22,4 @@ add_executable(hana_orientation
     src/main.cpp
     src/orientation.cpp
 )
-
+target_link_libraries(hana_orientation pthread)

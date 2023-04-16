@@ -42,7 +42,7 @@ HMR_CONTIG_ID_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP*
             continue;
         }
         //Try to read the column indices.
-        HMR_CONTIG_ID_CHAIN contig_id_chain;
+        HMR_CONTIG_ID_SET contig_id_set;
         //Ignore the first column (Chromosome label).
         column_stops.pop_front();
         //Record the second column start.
@@ -56,7 +56,7 @@ HMR_CONTIG_ID_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP*
             int32_t contig_id = extract_contig_index_get(*index_map, contig_name);
             if (contig_id != -1)
             {
-                contig_id_chain.push_back(contig_id);
+                contig_id_set.insert(contig_id);
             }
             column_start = column_stops.front() + 1;
             column_stops.pop_front();
@@ -68,12 +68,17 @@ HMR_CONTIG_ID_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP*
             int32_t contig_id = extract_contig_index_get(*index_map, contig_name);
             if (contig_id != -1)
             {
-                contig_id_chain.push_back(contig_id);
+                contig_id_set.insert(contig_id);
             }
         }
-        HMR_CONTIG_ID_VEC contig_ids;
-        hMoveListToVector(contig_id_chain, contig_ids);
+        //Ignore the line with only one contig.
+        if(contig_id_set.size() < 2)
+        {
+            continue;
+        }
         //Save the contig ID data.
+        HMR_CONTIG_ID_VEC contig_ids(std::make_move_iterator(contig_id_set.begin()),
+                                     std::make_move_iterator(contig_id_set.end()));
         allele_list.push_back(contig_ids);
     }
     //Close the file.

@@ -97,6 +97,7 @@ int main(int argc, char* argv[])
     //Find out the best matched cluster, but do not add them in.
     std::sort(invalid_nodes.begin(), invalid_nodes.end());
     partition_recover(clusters, invalid_nodes, opts.non_informative_ratio, partition_info);
+    time_print("Gathering contig clusters...");
     for (int32_t contig_id : invalid_nodes)
     {
         //Add the contig id to the cluster groups.
