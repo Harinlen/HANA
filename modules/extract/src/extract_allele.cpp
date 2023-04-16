@@ -79,6 +79,7 @@ HMR_CONTIG_ID_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP*
         //Save the contig ID data.
         HMR_CONTIG_ID_VEC contig_ids(std::make_move_iterator(contig_id_set.begin()),
                                      std::make_move_iterator(contig_id_set.end()));
+        std::sort(contig_ids.begin(), contig_ids.end());
         allele_list.push_back(contig_ids);
     }
     //Close the file.

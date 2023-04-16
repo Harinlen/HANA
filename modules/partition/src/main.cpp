@@ -112,8 +112,16 @@ int main(int argc, char* argv[])
     {
         std::string cluster_path = hmr_graph_path_cluster_name(opts.output, i+1, cluster_total);
         HMR_CONTIG_ID_VEC* group_cluster = clusters[i];
-        time_print("Saving cluster %zu (%zu contigs) to %s", i + 1, group_cluster->size(), cluster_path.c_str());
+        int32_t total_re = 0;
+        int64_t total_bp = 0;
+        for(const int32_t contig_id: *group_cluster)
+        {
+            total_re += nodes[contig_id].enzyme_count;
+            total_bp += nodes[contig_id].length;
+        }
+        time_print("Saving cluster %zu (%zu contigs, %d RE total, avg 1 per %d bp) to %s", i + 1, group_cluster->size(), total_re, total_bp / total_re, cluster_path.c_str());
         std::sort(clusters[i]->begin(), clusters[i]->end());
+
         hmr_graph_save_contig_ids(cluster_path.c_str(), *clusters[i]);
     }
     partition_free_clusters(partition_info);

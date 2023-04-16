@@ -32,7 +32,7 @@ void dump_bam_contig(uint32_t name_length, char* name, uint32_t, void* user)
     d->names[d->i] = std::string(name, name_length);
     ++d->i;
 }
-void dump_bam_read_align(size_t block_id, const BAM_BLOCK_HEADER* bam_block, void* user)
+void dump_bam_read_align(size_t, const BAM_BLOCK_HEADER* bam_block, void* user)
 {
     DUMP_BAM* d = static_cast<DUMP_BAM*>(user);
     fprintf(d->dump_file, "%s\t%d\t%s\t%d\n", d->names[bam_block->refID].c_str(), bam_block->pos, d->names[bam_block->next_refID].c_str(), bam_block->next_pos);
@@ -185,13 +185,11 @@ int dump_edges(int argc, char* argv[])
 
 int dump_nodes(int argc, char* argv[])
 {
-    if (argc < 2)
+    if (argc < 1)
     {
         printf("Usage: nodes [nodes file path]\n");
         exit(-1);
     }
-    //Read the arguments.
-    parse_arguments(argc - 1, argv + 1);
     //Get the bam file path.
     const char* filepath = argv[1];
     if (!path_can_read(filepath))
@@ -223,7 +221,7 @@ int dump_group(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        printf("Usage: group [group file path] -n [nodes file path] -o [dump file path]\n");
+        printf("Usage: group [group file path] -n [nodes file path]\n");
     }
     //Read the arguments.
     parse_arguments(argc - 1, argv + 1);
@@ -262,7 +260,59 @@ int dump_group(int argc, char* argv[])
         fprintf(dump_file, "%d\t%s\t%d\n", contig_id, node_infos.names[contig_id].name, node_infos.contigs[contig_id].length);
     }
     fclose(dump_file);
+    return 0;
 }
+
+int dump_allele_table(int argc, char* argv[])
+{
+    if (argc < 2)
+    {
+        printf("Usage: allele [allele table file path] -n [nodes file path]\n");
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open group file %s\n", filepath);
+        exit(-1);
+    }
+    if (!opts.nodes)
+    {
+        printf("Please provide the node file path.\n");
+        exit(-1);
+    }
+    if (!path_can_read(opts.nodes))
+    {
+        printf("Failed to open node file %s\n", opts.nodes);
+        exit(-1);
+    }
+    std::string output_path = std::string(filepath) + ".txt";
+    FILE* dump_file;
+    if (!text_open_write(output_path.c_str(), &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+    }
+    //Load the contigs.
+    HMR_CONTIGS node_infos;
+    hmr_graph_load_contigs(opts.nodes, node_infos.contigs, &node_infos.names);
+    //Load the allele table.
+    HMR_CONTIG_ID_TABLE allele_table;
+    hmr_graph_load_contig_table(filepath, allele_table);
+    for (const HMR_CONTIG_ID_VEC &record : allele_table)
+    {
+        for (const int32_t cid: record)
+        {
+            fprintf(dump_file, "%s\t", node_infos.names[cid].name);
+        }
+        fprintf(dump_file, "\n");
+    }
+    fclose(dump_file);
+    return 0;
+}
+
+
 
 std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
     {"bam", dump_bam},
@@ -270,13 +320,14 @@ std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
     {"group", dump_group},
     {"reads", dump_reads},
     {"edges", dump_edges},
+    {"allele", dump_allele_table},
 };
 
-void help_exit(const char *s = NULL)
+void help_exit()
 {
     printf("usage: op [param]\n");
     printf("Support operations:\n");
-    for (const auto iter : dump_proc_map)
+    for (const auto &iter : dump_proc_map)
     {
         printf("    %s\n", iter.first.c_str());
     }

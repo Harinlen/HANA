@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <cstdio>
 #include <cmath>
 
 #include "hmr_ui.hpp"
@@ -16,7 +17,7 @@ bool vector_has_intersection(const HMR_CONTIG_ID_VEC& group_a, const HMR_CONTIG_
         {
             ++i;
         }
-        else if (*i < *j)
+        else if (*i > *j)
         {
             ++j;
         }

@@ -62,7 +62,12 @@ void draft_mappings_build_edge_counter(HMR_MAPPING *mapping, int32_t buf_size, v
     for(int32_t i = 0; i < buf_size; ++i)
     {
         const HMR_MAPPING& mapping_info = mapping[i];
-        //Find the node start.
+        //Only care about inter-connected edges.
+        if(mapping_info.refID == mapping_info.next_refID)
+        {
+            continue;
+        }
+        //Count the edge for both nodes.
         count_edge(edge_map, mapping_info.refID, mapping_info.next_refID);
         count_edge(edge_map, mapping_info.next_refID, mapping_info.refID);
     }
@@ -75,13 +80,12 @@ inline bool remove_edge(EDGE_COUNT_MAP& edge_map, int32_t node_start, int32_t no
     {
         return false;
     }
-    auto &node_map = iter->second;
-    const auto node_iter = node_map.find(node_end);
-    if(node_iter == node_map.end())
+    const auto node_iter = iter->second.find(node_end);
+    if(node_iter == iter->second.end())
     {
         return false;
     }
-    node_map.erase(node_iter);
+    iter->second.erase(node_iter);
     return true;
 }
 

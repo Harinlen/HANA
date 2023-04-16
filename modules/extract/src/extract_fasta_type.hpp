@@ -2,6 +2,7 @@
 #define EXTRACT_FASTA_TYPE_H
 
 #include <vector>
+#include <cstdint>
 
 typedef struct ENZYME_RANGE
 {

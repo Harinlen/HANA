@@ -91,36 +91,37 @@ int main(int argc, char* argv[])
                     }
                 }
                 //Find out the best edge of the connected neighbours.
-                std::unordered_map<int32_t, ALLELE_NEIGHBOUR> neighbor_counts;
+                std::unordered_map<int32_t, ALLELE_NEIGHBOUR> best_neighbors;
                 //Collect the best matching node id.
                 for(size_t i=0; i<conflict_row.size(); ++i)
                 {
-                    int32_t row_contig_id = conflict_row[i];
-                    std::vector<int32_t> candidate_ids;
-                    auto node_map = edge_pair_map.find(row_contig_id);
-                    if(node_map == edge_pair_map.end())
+                    int32_t contig_id = conflict_row[i];
+                    auto node_map_iter = edge_pair_map.find(contig_id);
+                    if(node_map_iter == edge_pair_map.end())
                     {
                         continue;
                     }
-                    candidate_ids.reserve(node_map->second.size());
-                    for(const auto iter: node_map->second)
+                    std::vector<int32_t> contig_neighbours;
+                    NODE_COUNT_MAP &node_map = node_map_iter->second;
+                    contig_neighbours.reserve(node_map.size());
+                    for(const auto iter: node_map)
                     {
-                        candidate_ids.push_back(iter.first);
+                        contig_neighbours.push_back(iter.first);
                     }
                     //Check all the neighbour of the current node.
-                    for(const auto neighbour_id: candidate_ids)
+                    for(const auto neighbour_id: contig_neighbours)
                     {
                         //Try to find the node id in neighour counts.
-                        auto current_iter = node_map->second.find(neighbour_id);
-                        if(current_iter == node_map->second.end())
+                        auto current_iter = node_map_iter->second.find(neighbour_id);
+                        if(current_iter == node_map_iter->second.end())
                         {
                             continue;
                         }
-                        auto existed_count_iter = neighbor_counts.find(neighbour_id);
-                        if(existed_count_iter == neighbor_counts.end())
+                        auto existed_count_iter = best_neighbors.find(neighbour_id);
+                        if(existed_count_iter == best_neighbors.end())
                         {
                             //Create a new record for the contig.
-                            neighbor_counts.insert(std::make_pair(neighbour_id, ALLELE_NEIGHBOUR { row_contig_id, current_iter->second }));
+                            best_neighbors.insert(std::make_pair(neighbour_id, ALLELE_NEIGHBOUR { contig_id, current_iter->second }));
                         }
                         else
                         {
@@ -129,14 +130,14 @@ int main(int argc, char* argv[])
                             if(existed_count_info.count > current_iter->second)
                             {
                                 //Current edge need to be removed.
-                                draft_mappings_remove_edge(edge_pair_map, neighbour_id, row_contig_id);
+                                draft_mappings_remove_edge(edge_pair_map, neighbour_id, contig_id);
                             }
                             else
                             {
                                 //Remove the neighour with its original connected contig.
                                 draft_mappings_remove_edge(edge_pair_map, neighbour_id, existed_count_info.connected_id);
                                 //Update the connected id and counts to current contig.
-                                existed_count_info.connected_id = row_contig_id;
+                                existed_count_info.connected_id = contig_id;
                                 existed_count_info.count = current_iter->second;
                             }
                         }

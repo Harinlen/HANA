@@ -13,6 +13,22 @@
 
 #include "extract_mapping.hpp"
 
+bool range_in_range(int32_t pos, uint32_t length, const CONTIG_ENZYME_RANGE& ranges)
+{
+    int32_t pos_end = pos + length;
+    for (size_t i = 0; i < ranges.size(); ++i)
+    {
+        const ENZYME_RANGE& r = ranges[i];
+        //Check whether the position is in the range.
+        if (pos_end >= r.start && pos <= r.end)
+        {
+            return true;
+        }
+    }
+    //No position matched.
+    return false;
+}
+
 bool position_in_range(int32_t pos, const CONTIG_ENZYME_RANGE& ranges)
 {
     for (size_t i = 0; i < ranges.size(); ++i)
@@ -159,6 +175,7 @@ typedef struct BAM_MAPPING_INFO
     int32_t pos;
     int32_t next_refID;
     int32_t next_pos;
+    uint32_t l_seq;
     uint16_t flag;
     uint8_t mapq;
 } BAM_MAPPING_INFO;
@@ -257,7 +274,7 @@ void extract_mapping_bam_worker(int32_t id, MAPPING_WORKER &worker, BAM_EXTRACTO
                 || mapping_info.mapq < extractor.mapq //Check whether the mapping reaches the minimum quality
                 || ((extractor.check_flag & CHECK_FLAG_FLAG) && (mapping_info.flag & 3852)) // Filtered flag from AllHiC.
                 //|| (ref_index == next_ref_index) // We don't care about the pairs on the same contigs.
-                || ((extractor.check_flag & CHECK_FLAG_RANGE) && (!position_in_range(mapping_info.pos, (*extractor.contig_enzyme_ranges)[ref_index])))) // Or the position is not in the position.
+                || ((extractor.check_flag & CHECK_FLAG_RANGE) && (!range_in_range(mapping_info.pos, mapping_info.l_seq, (*extractor.contig_enzyme_ranges)[ref_index])))) // Or the position is not in the position.
             {
                 continue;
             }
@@ -324,6 +341,7 @@ void extract_bam_read_align(size_t, const BAM_BLOCK_HEADER* bam_block, void* use
         bam_block->pos,
         bam_block->next_refID,
         bam_block->next_pos,
+        bam_block->l_seq,
         bam_block->flag,
         bam_block->mapq
     };
