@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
             //Calculate the node factors.
             node_factors[i] /= links_average;
             //Check whether the node factors is valid or not.
-            contig_invalid[i] |= (static_cast<int32_t>(node_factors[i]) >= opts.max_density);
+            contig_invalid[i] |= (node_factors[i] >= opts.max_density);
             if (contig_invalid[i])
             {
                 ++invalid_counter;

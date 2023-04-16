@@ -10,6 +10,11 @@ void draft_mappings_build_edges(HMR_MAPPING* mapping, int32_t buf_size, void* us
     for (int32_t i = 0; i < buf_size; ++i)
     {
         const HMR_MAPPING& mapping_info = mapping[i];
+        //Only care about inter-connected edges.
+        if(mapping_info.refID == mapping_info.next_refID)
+        {
+            continue;
+        }
         //Increase the counter on the edge.
         uint64_t edge = hmr_graph_edge_data(mapping_info.refID, mapping_info.next_refID);
         const auto iter = edges->find(edge);
