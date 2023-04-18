@@ -34,9 +34,8 @@ int main(int argc, char* argv[])
     opts.read_buffer_size <<= 10;
     //Load the contig node information.
     HMR_NODES nodes;
-    HMR_NODE_NAMES node_names;
     time_print("Loading contig information from %s", opts.nodes);
-    hmr_graph_load_contigs(opts.nodes, nodes, &node_names);
+    hmr_graph_load_contigs(opts.nodes, nodes);
     time_print("%zu contig(s) information loaded.", nodes.size());
     int32_t num_of_contigs = static_cast<int32_t>(nodes.size());
     //Load the invalid node information when necessary.
@@ -73,7 +72,7 @@ int main(int argc, char* argv[])
             time_print("%zu allele record(s) loaded.", allele_table.size());
             //Loop through the allele table, remove the edge pairs.
             time_print("Removing allele edges...");
-            //Build the node-to-node map.
+            //Remove the inter-connected edges inside a row.
             for(auto &conflict_row: allele_table)
             {
                 int32_t row_size = static_cast<int32_t>(conflict_row.size());
@@ -90,57 +89,64 @@ int main(int argc, char* argv[])
                         draft_mappings_remove_edge(edge_pair_map, conflict_row[i], conflict_row[j]);
                     }
                 }
-                //Find out the best edge of the connected neighbours.
-                std::unordered_map<int32_t, ALLELE_NEIGHBOUR> best_neighbors;
-                //Collect the best matching node id.
-                for(size_t i=0; i<conflict_row.size(); ++i)
+            }
+            //For edges between rows, leave only the strongest connected edges.
+            size_t num_of_allele_rows = allele_table.size();
+            for(size_t i=0; i<num_of_allele_rows - 1; ++i)
+            {
+                for(size_t j=i+1; j<num_of_allele_rows; ++j)
                 {
-                    int32_t contig_id = conflict_row[i];
-                    auto node_map_iter = edge_pair_map.find(contig_id);
-                    if(node_map_iter == edge_pair_map.end())
+                    //Copy two allele row.
+                    HMR_CONTIG_ID_VEC row_i(allele_table[i]), row_j(allele_table[j]);
+                    //Only care about the different contigs.
+                    hmr_remove_common(row_i, row_j);
+                    //We want to find the maximum paired edges between these two rows.
+                    //And only one contig is matching the other.
+                    std::list<HMR_EDGE_INFO> edge_list;
+                    for(const int32_t contig_i: row_i)
                     {
-                        continue;
-                    }
-                    std::vector<int32_t> contig_neighbours;
-                    NODE_COUNT_MAP &node_map = node_map_iter->second;
-                    contig_neighbours.reserve(node_map.size());
-                    for(const auto iter: node_map)
-                    {
-                        contig_neighbours.push_back(iter.first);
-                    }
-                    //Check all the neighbour of the current node.
-                    for(const auto neighbour_id: contig_neighbours)
-                    {
-                        //Try to find the node id in neighour counts.
-                        auto current_iter = node_map_iter->second.find(neighbour_id);
-                        if(current_iter == node_map_iter->second.end())
+                        auto iter_i = edge_pair_map.find(contig_i);
+                        if(iter_i == edge_pair_map.end())
                         {
                             continue;
                         }
-                        auto existed_count_iter = best_neighbors.find(neighbour_id);
-                        if(existed_count_iter == best_neighbors.end())
+                        NODE_COUNT_MAP &contig_i_map = iter_i->second;
+                        for(const int32_t contig_j: row_j)
                         {
-                            //Create a new record for the contig.
-                            best_neighbors.insert(std::make_pair(neighbour_id, ALLELE_NEIGHBOUR { contig_id, current_iter->second }));
+                            auto iter_j = contig_i_map.find(contig_j);
+                            if(iter_j == contig_i_map.end())
+                            {
+                                continue;
+                            }
+                            edge_list.push_back(HMR_EDGE_INFO{contig_i, contig_j, static_cast<uint64_t>(iter_j->second), 0.0});
                         }
-                        else
+                    }
+                    //If there is no edges for these two rows, we don't care about that.
+                    if(edge_list.empty())
+                    {
+                        continue;
+                    }
+                    std::vector<HMR_EDGE_INFO> edges;
+                    hMoveListToVector(edge_list, edges);
+                    std::sort(edges.begin(), edges.end(),
+                              [](const HMR_EDGE_INFO &lhs, const HMR_EDGE_INFO &rhs)
+                    {
+                        return lhs.pairs > rhs.pairs;
+                    });
+                    //Pick out the first edges, check whether these two contigs are still in the row.
+                    //If not, remove the edge.
+                    for(const HMR_EDGE_INFO &edge: edges)
+                    {
+                        if(!hmr_in_ordered_vector(edge.start, row_i) ||
+                                !hmr_in_ordered_vector(edge.end, row_j))
                         {
-                            //Need to compare with the row ID's record.
-                            auto &existed_count_info = existed_count_iter->second;
-                            if(existed_count_info.count > current_iter->second)
-                            {
-                                //Current edge need to be removed.
-                                draft_mappings_remove_edge(edge_pair_map, neighbour_id, contig_id);
-                            }
-                            else
-                            {
-                                //Remove the neighour with its original connected contig.
-                                draft_mappings_remove_edge(edge_pair_map, neighbour_id, existed_count_info.connected_id);
-                                //Update the connected id and counts to current contig.
-                                existed_count_info.connected_id = contig_id;
-                                existed_count_info.count = current_iter->second;
-                            }
+                            //Remove the edge.
+                            draft_mappings_remove_edge(edge_pair_map, edge.start, edge.end);
+                            continue;
                         }
+                        //Or else, we found an edge that is valid, remove the contig from the vector.
+                        hmr_remove_one(row_i, edge.start);
+                        hmr_remove_one(row_j, edge.end);
                     }
                 }
             }
@@ -180,14 +186,15 @@ int main(int argc, char* argv[])
         int32_t node_start, node_end;
         for (const auto& iter : edge_pairs)
         {
+            //Create the edge, count to the factors.
+            hmr_graph_edge_pos(iter.first, node_start, node_end);
             //Skip the edge.
             int32_t edge_num_of_links = iter.second;
             if (edge_num_of_links < opts.min_links)
             {
                 continue;
             }
-            //Create the edge, count to the factors.
-            hmr_graph_edge_pos(iter.first, node_start, node_end);
+
             // Calculat the edge weights..
             double edge_weights = static_cast<double>(max_re_square * edge_num_of_links / nodes[node_start].enzyme_count / nodes[node_end].enzyme_count);
             edges.emplace_back(HMR_EDGE_INFO{ node_start, node_end, static_cast<uint64_t>(edge_num_of_links), edge_weights });

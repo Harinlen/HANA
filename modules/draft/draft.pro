@@ -19,14 +19,15 @@ SOURCES += \
     src/main.cpp
 
 HEADERS += \
-    ../shared\hmr_algorithm.hpp \
-    ../shared\hmr_args.hpp \
-    ../shared\hmr_args_types.hpp \
-    ../shared\hmr_bin_file.hpp \
-    ../shared\hmr_contig_graph.hpp \
-    ../shared\hmr_contig_graph_type.hpp \
-    ../shared\hmr_path.hpp \
-    ../shared\hmr_ui.hpp \
+    ../shared/hmr_global.hpp \
+    ../shared/hmr_algorithm.hpp \
+    ../shared/hmr_args.hpp \
+    ../shared/hmr_args_types.hpp \
+    ../shared/hmr_bin_file.hpp \
+    ../shared/hmr_contig_graph.hpp \
+    ../shared/hmr_contig_graph_type.hpp \
+    ../shared/hmr_path.hpp \
+    ../shared/hmr_ui.hpp \
     src/args_draft.hpp \
     src/draft_mappings.hpp \
     src/draft_mappings_type.hpp
