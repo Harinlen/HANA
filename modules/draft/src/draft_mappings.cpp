@@ -31,27 +31,16 @@ void draft_mappings_build_edges(HMR_MAPPING* mapping, int32_t buf_size, void* us
 
 inline void count_edge(EDGE_COUNT_MAP* edge_map, int32_t node_start, int32_t node_end)
 {
-    const auto iter = edge_map->find(node_start);
-    if(iter == edge_map->end())
+    auto &node_map = (*edge_map)[node_start];
+    //Find the end node in the target map.
+    const auto node_iter = node_map.find(node_end);
+    if(node_iter == node_map.end())
     {
-        //Create a node map for the node start.
-        NODE_COUNT_MAP node_map;
         node_map.insert(std::make_pair(node_end, 1));
-        edge_map->insert(std::make_pair(node_start, node_map));
     }
     else
     {
-        //Find the end node in the target map.
-        auto &node_map = iter->second;
-        const auto node_iter = node_map.find(node_end);
-        if(node_iter == node_map.end())
-        {
-            node_map.insert(std::make_pair(node_end, 1));
-        }
-        else
-        {
-            ++node_iter->second;
-        }
+        ++node_iter->second;
     }
 }
 
@@ -75,17 +64,13 @@ void draft_mappings_build_edge_counter(HMR_MAPPING *mapping, int32_t buf_size, v
 
 inline bool remove_edge(EDGE_COUNT_MAP& edge_map, int32_t node_start, int32_t node_end)
 {
-    const auto iter = edge_map.find(node_start);
-    if(iter == edge_map.end())
+    auto &node_map = edge_map[node_start];
+    const auto node_iter = node_map.find(node_end);
+    if(node_iter == node_map.end())
     {
         return false;
     }
-    const auto node_iter = iter->second.find(node_end);
-    if(node_iter == iter->second.end())
-    {
-        return false;
-    }
-    iter->second.erase(node_iter);
+    node_map.erase(node_iter);
     return true;
 }
 

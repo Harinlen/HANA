@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32407.343
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "chromap_helper", "chromap_helper.vcxproj", "{32E937A9-87D1-497A-BB8C-F376049CC186}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Debug|x64.ActiveCfg = Debug|x64
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Debug|x64.Build.0 = Debug|x64
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Debug|x86.ActiveCfg = Debug|Win32
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Debug|x86.Build.0 = Debug|Win32
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Release|x64.ActiveCfg = Release|x64
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Release|x64.Build.0 = Release|x64
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Release|x86.ActiveCfg = Release|Win32
+		{32E937A9-87D1-497A-BB8C-F376049CC186}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6BF0C767-115D-4F52-ABD7-5C4D97962835}
+	EndGlobalSection
+EndGlobal

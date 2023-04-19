@@ -369,7 +369,6 @@ void extract_pairs_proc(const char *ref, size_t ref_len, const char *next_ref, s
         return;
     }
     //Extract the index of the ref and next ref.
-
 }
 // ------ Pairs Worker End ------
 

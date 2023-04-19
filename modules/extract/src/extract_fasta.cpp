@@ -68,6 +68,8 @@ void contig_range_search(const ENZYME_RANGE_SEARCH& param)
         //Perform the next search.
         enzyme_pos = contig_draft_search(seq, seq_size, search_param);
     }
+    //Recover the sequence memory.
+    free(param.seq);
     //Construct the enzyme range result.
     CONTIG_RANGE_RESULT contig_result;
     contig_result.contig_index = param.contig_index;

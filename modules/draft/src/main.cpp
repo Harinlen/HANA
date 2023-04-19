@@ -56,13 +56,14 @@ int main(int argc, char* argv[])
     time_print("Reading paired-reads from %s", opts.reads);
     HMR_EDGE_COUNTERS edges;
     std::vector<double> node_factors;
-    {
+    
         EDGE_COUNTER edge_pairs;
         //Load the allele table when necessary.
         if (allele_mode)
         {
             //First build the edge counter map.
             EDGE_COUNT_MAP edge_pair_map;
+            edge_pair_map.resize(nodes.size());
             hmr_graph_load_reads(opts.reads, opts.read_buffer_size, draft_mappings_build_edge_counter, &edge_pair_map);
             time_print("Paired-reads map has been built.");
             //Read the allele table.
@@ -105,12 +106,11 @@ int main(int argc, char* argv[])
                     std::list<HMR_EDGE_INFO> edge_list;
                     for(const int32_t contig_i: row_i)
                     {
-                        auto iter_i = edge_pair_map.find(contig_i);
-                        if(iter_i == edge_pair_map.end())
+                        NODE_COUNT_MAP& contig_i_map = edge_pair_map[contig_i];
+                        if(contig_i_map.empty())
                         {
                             continue;
                         }
-                        NODE_COUNT_MAP &contig_i_map = iter_i->second;
                         for(const int32_t contig_j: row_j)
                         {
                             auto iter_j = contig_i_map.find(contig_j);
@@ -150,11 +150,11 @@ int main(int argc, char* argv[])
                     }
                 }
             }
+            time_print("Converting the node<->node map to edge pair maps...");
             //Convert the map to edge pairs.
-            for(auto node_map_iter: edge_pair_map)
+            for (int32_t node_start = 0, node_size = static_cast<int32_t>(edge_pair_map.size()); node_start < node_size; ++node_start)
             {
-                int32_t node_start = node_map_iter.first;
-                for(auto end_iter: node_map_iter.second)
+                for(auto &end_iter: edge_pair_map[node_start])
                 {
                     HMR_EDGE edge = hmr_graph_edge(node_start, end_iter.first);
                     //Only add the edge that is not existed before.
@@ -194,7 +194,6 @@ int main(int argc, char* argv[])
             {
                 continue;
             }
-
             // Calculat the edge weights..
             double edge_weights = static_cast<double>(max_re_square * edge_num_of_links / nodes[node_start].enzyme_count / nodes[node_end].enzyme_count);
             edges.emplace_back(HMR_EDGE_INFO{ node_start, node_end, static_cast<uint64_t>(edge_num_of_links), edge_weights });
@@ -240,7 +239,7 @@ int main(int argc, char* argv[])
             hmr_graph_save_contig_ids(invalid_node_path.c_str(), invalid_nodes);
             time_print("Done");
         }
-    }
+
     //Based on the node factors, change the graph to directed-graph.
     time_print("Adjust link densities by repetitive factors...");
     for (size_t i = 0; i < edges.size(); ++i)

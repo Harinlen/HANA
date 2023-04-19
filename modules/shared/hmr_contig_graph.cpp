@@ -57,6 +57,16 @@ void hmr_graph_buffer_loader(const char* filepath, GRAPH_BUF_LOADER<T>& loader, 
     {
         time_error(-1, "Failed to open buffered data file %s", filepath);
     }
+    //Get the total file size.
+    fseek(data_file, 0L, SEEK_END);
+#ifdef _MSC_VER
+    size_t total_size = _ftelli64(data_file);
+#else
+    size_t total_size = ftello64(data_file);
+#endif
+    fseek(data_file, 0L, SEEK_SET);
+    //For UI output.
+    size_t report_size = (total_size + 9) / 10, report_pos = report_size;
     //Check size loader.
     if (size_proc)
     {
@@ -73,6 +83,18 @@ void hmr_graph_buffer_loader(const char* filepath, GRAPH_BUF_LOADER<T>& loader, 
         loader.buf_loading->buf_size = static_cast<int32_t>(fread(loader.buf_loading->buf, sizeof(T), loader.buf_size, data_file));
         //Check whether we can still fill all the part of the buffer.
         loader.finished = loader.buf_loading->buf_size < loader.buf_size;
+        //Check should we report the position.
+#ifdef _MSC_VER
+        size_t data_file_pos = _ftelli64(data_file);
+#else
+        size_t data_file_pos = ftello64(data_file);
+#endif
+        if (data_file_pos >= report_pos)
+        {
+            float percent = static_cast<float>(data_file_pos) / static_cast<float>(total_size) * 100.0f;
+            time_print("File parsed %.1f%%", percent);
+            report_pos += report_size;
+        }
         //Set as loaded.
         loader.is_loaded = true;
         //Notify the main thread.
