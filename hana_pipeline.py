@@ -20,15 +20,15 @@ def main():
     # Go to the directory and find the configure file, named in "hana_config.json".
     project_dir = os.path.abspath(args.project_dir)
     time_print("Running project at {}".format(project_dir))
-    # Go to the project dir.
-    os.chdir(project_dir)
-    project_config = config.load_config(project_dir)
     # Check the environment.
     time_print("Loading environment...")
-    project_status = config.load_status(project_dir)
-    config.check_environment(project_config, project_status)
+    os.chdir(project_dir)
+    project_status = {}
+    project_config = config.load_config(project_dir, project_status)
+    stored_status = config.load_status(project_dir)
+    stored_status.update(project_status)
     # Run the operations.
-    ops.run_pipeline(project_dir, project_config, project_status)
+    ops.run_pipeline(project_config, stored_status, project_status)
     return 0
 
 
