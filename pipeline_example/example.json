@@ -1,0 +1,112 @@
+{
+  "files": {
+    "contigs": "???.fasta",
+    "reads": [
+    	["?.fastq.gz", "?.fastq.gz"]
+    ],
+    "bams": [
+        "????.bam"
+    ],
+    "pairs": [
+        "????.pairs"
+    ]
+  },
+  "paths": {
+    "dirs": [],
+    "bwa": "",
+    "chromap": "",
+    "samtools": ""
+  }
+  "global": {
+    "groups": 1,
+    "threads": 1,
+    "enzyme": "MboI"
+  },
+  "ops": [
+    {
+      "command": "map",
+      "enable": true,
+      "mapper": "bwa",
+      "contigs": "$contigs",
+      "reads": "$reads",
+      "args": []
+    },
+    {
+      "command": "extract",
+      "enable": true,
+      "contigs": "$contigs",
+      "mappings": "$mappings",
+      "allele": "$",
+      "output": "$PROJECT_DIR",
+      "enzyme": "!",
+      "threads": "!",
+      "mapq": "!",
+      "enzyme_range": 500,
+      "search-buffer": 1,
+      "mapping-buffer": 1,
+      "skip-check-flag": true,
+      "skip-check-range": true
+    },
+    {
+      "command": "draft",
+      "enable": true,
+      "nodes": "-",
+      "reads": "-",
+      "allele": "-",
+      "output": "#PROJECT_DIR",
+      "buffer-size": 1,
+      "min-links": 2,
+      "min-re": 3,
+      "max-link-density": 4
+    },
+    {
+      "command": "partition",
+      "enable": true,
+      "nodes": "-",
+      "edges": "-",
+      "allele": "",
+      "groups": "!",
+      "output": "#PROJECT_DIR",
+      "buffer-size": 1,
+      "non-informative-ratio": 2
+    },
+    {
+      "command": "loop",
+      "enable": true,
+      "var": "group",
+      "list": "-groups",
+      "body": [
+        {
+          "command": "ordering",
+          "enable": true,
+          "nodes": "-",
+          "edges": "-",
+          "group": "-",
+          "output": "[+][base]-group,.hmr-seq",
+          "threads": "!",
+          "seed": 1,
+          "buffer-size": 1,
+          "mutate-prob": 2,
+          "non-change-gen": 3,
+          "max-gen": 4,
+          "num-of-pop": 5
+        }
+      ]
+    },
+    {
+      "command": "orientation",
+      "enable": true,
+      "nodes": "-",
+      "reads": "-",
+      "seq": "-",
+      "buffer-size": 1,
+    },
+    {
+      "command": "build",
+      "enable": true,
+      "contigs": "$",
+      "chromo": "-",
+      "output": "[+]#PROJECT_DIR,.fasta"
+    }
+  ]
+}

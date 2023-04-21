@@ -35,8 +35,7 @@
       "list": "-groups",
       "body": [
         {
-          "command": "ordering",
-          "enable": true
+          "command": "ordering"
         }
       ]
     },
