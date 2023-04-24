@@ -161,6 +161,7 @@
     <ClInclude Include="..\shared\hmr_contig_graph.hpp" />
     <ClInclude Include="..\shared\hmr_contig_graph_type.hpp" />
     <ClInclude Include="..\shared\hmr_fasta.hpp" />
+    <ClInclude Include="..\shared\hmr_global.hpp" />
     <ClInclude Include="..\shared\hmr_gz.hpp" />
     <ClInclude Include="..\shared\hmr_path.hpp" />
     <ClInclude Include="..\shared\hmr_seq.hpp" />

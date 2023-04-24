@@ -2,12 +2,14 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
-#include <unordered_map>
+#include <list>
+#include <vector>
 
 #include "hmr_args.hpp"
 #include "hmr_contig_graph.hpp"
 #include "hmr_fasta.hpp"
 #include "hmr_path.hpp"
+#include "hmr_global.hpp"
 #include "hmr_text_file.hpp"
 #include "hmr_ui.hpp"
 
@@ -17,11 +19,14 @@ extern HMR_ARGS opts;
 
 typedef struct CONTIG_SEQ
 {
-    char *seq;
-    size_t seq_size;
+    char* name, * seq;
+    size_t name_size, seq_size;
 } CONTIG_SEQ;
 
-typedef std::unordered_map<int32_t, CONTIG_SEQ> CONTIG_DICT;
+typedef std::vector<CONTIG_SEQ> CONTIG_DICT;
+typedef std::list<CONTIG_SEQ> CONTIG_DICT_LIST;
+
+
 static char reverse_bp[26] = {
     'T', // 'A',
     'B',
@@ -51,29 +56,24 @@ static char reverse_bp[26] = {
     'Z',
 };
 
-void build_fasta_loader(int32_t seq_index, char *, size_t, char *seq_data, size_t seq_data_len, void *user)
+void build_fasta_loader(int32_t seq_index, char *name, size_t name_len, char *seq_data, size_t seq_data_len, void *user)
 {
-    CONTIG_DICT *contigs = reinterpret_cast<CONTIG_DICT *>(user);
+    CONTIG_DICT_LIST *contigs = reinterpret_cast<CONTIG_DICT_LIST*>(user);
     //Construct the contig building dictionary.
-    contigs->insert(std::make_pair(seq_index, CONTIG_SEQ{ seq_data, seq_data_len }));
+    contigs->push_back(CONTIG_SEQ{ name, seq_data, name_len, seq_data_len });
 }
 
 typedef struct CHROMOSOME_BUILD
 {
     CONTIG_DICT contigs;
-    FILE *output_fasta;
+    FILE *output_fasta, *output_agp;
 } CHROMOSOME_BUILD;
 
 void build_chromosome(const HMR_DIRECTED_CONTIG &contig_info, CHROMOSOME_BUILD& builder)
 {
-    CONTIG_DICT &contigs = builder.contigs;
+    CONTIG_DICT& contigs = builder.contigs;
     //Extract the sequence from the directory.
-    auto seq_iter = contigs.find(contig_info.id);
-    if(seq_iter == contigs.end())
-    {
-        return;
-    }
-    CONTIG_SEQ contig = seq_iter->second;
+    CONTIG_SEQ &contig = contigs[contig_info.id];
     //Check the direction.
     if(contig_info.direction)
     {
@@ -100,6 +100,16 @@ void build_chromosome(const HMR_DIRECTED_CONTIG &contig_info, CHROMOSOME_BUILD& 
     }
 }
 
+size_t build_agp(size_t offset, std::string title, const HMR_DIRECTED_CONTIG& contig_info, CHROMOSOME_BUILD& builder, size_t *counter)
+{
+    //Extract the sequence from the directory.
+    const CONTIG_SEQ& contig = builder.contigs[contig_info.id];
+    size_t next_offset = offset + contig.seq_size;
+    fprintf(builder.output_agp, "%s\t%zu\t%zu\t%zu\tW\t%s\t1\t%zu\t%c\n", title.c_str(), offset, next_offset - 1, *counter, contig.name, contig.seq_size, contig_info.direction ? '-' : '+');
+    ++(*counter);
+    return next_offset;
+}
+
 int main(int argc, char *argv[])
 {
     //Parse the arguments.
@@ -111,30 +121,60 @@ int main(int argc, char *argv[])
     if (!opts.output) { help_exit(-1, "Missing output fasta file path."); }
     //Load the FASTA and cache all the sequence.
     CHROMOSOME_BUILD builder;
-    time_print("Constructing FASTA sequence index from %s", opts.fasta);
-    hmr_fasta_read(opts.fasta, build_fasta_loader, &builder.contigs);
-    time_print("%zu sequences loaded.", builder.contigs.size());
-    //Open the output file to write data.
-    time_print("Opening output file %s", opts.output);
-    if(!text_open_write(opts.output, &builder.output_fasta))
     {
-        time_error(-1, "Failed to open the output file.");
+        CONTIG_DICT_LIST contig_list;
+        time_print("Constructing FASTA sequence index from %s", opts.fasta);
+        hmr_fasta_read(opts.fasta, build_fasta_loader, &contig_list);
+        hMoveListToVector(contig_list, builder.contigs);
+        time_print("%zu sequences loaded.", contig_list.size());
+    }
+    //Open the output file to write data.
+    assert(opts.output);
+    std::string fasta_path = std::string(opts.output) + "_build.fasta";
+    std::string agp_path = std::string(opts.output) + "_build.agp";
+    time_print("Opening output FASTA file %s", fasta_path.c_str());
+    if(!text_open_write(fasta_path.c_str(), &builder.output_fasta))
+    {
+        time_error(-1, "Failed to open the output FASTA file.");
+    }
+    time_print("Opening output AGP file %s", agp_path.c_str());
+    if (!text_open_write(agp_path.c_str(), &builder.output_agp))
+    {
+        time_error(-1, "Failed to open the output AGP file.");
     }
     for(size_t i=0; i<opts.chromosomes.size(); ++i)
     {
         char *chromo_path = opts.chromosomes[i];
         time_print("Constructing chromosome %zu from %s", i+1, chromo_path);
         //Write the name of the chromosome.
-        fprintf(builder.output_fasta, ">Chromosome_%zu\n", i+1);
+        std::string group_name = "Group_" + std::to_string(i + 1);
+        fprintf(builder.output_fasta, ">%s\n", group_name.c_str());
         CHROMOSOME_CONTIGS seq;
         hmr_graph_load_chromosome(chromo_path, seq);
+        if (seq.empty())
+        {
+            continue;
+        }
         for (const auto &contig_info: seq)
         {
             build_chromosome(contig_info, builder);
         }
         fprintf(builder.output_fasta, "\n");
+        //Build AGP file.
+        size_t offset = 1, contig_counter = 1;
+        //Output the first contig.
+        offset = build_agp(offset, group_name, seq[0], builder, &contig_counter);
+        for (size_t info_id = 1; info_id < seq.size(); ++info_id)
+        {
+            //Write a 100 gap.
+            size_t next_offset = offset + 100;
+            fprintf(builder.output_agp, "%s\t%zu\t%zu\t%zu\tU\t100\tcontig\tyes\tmap\n", group_name.c_str(), offset, next_offset - 1, contig_counter);
+            ++contig_counter;
+            offset = build_agp(next_offset, group_name, seq[info_id], builder, &contig_counter);
+        }
     }
     fclose(builder.output_fasta);
+    fclose(builder.output_agp);
     time_print("Build complete.");
     return 0;
 }

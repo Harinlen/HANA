@@ -12,5 +12,10 @@ Now we expect to work in the following way:
 
 Allele checklist:
 - [x] Apply allele constraints partition.
-- [ ] Apply allele table filtering
-- [ ] Apply non-best filtering
+- [x] Apply allele table filtering
+- [x] Apply non-best filtering
+
+Feature support:
+- [ ] Automated pipeline
+- [ ] Pairs format support
+- [ ] Chromap support

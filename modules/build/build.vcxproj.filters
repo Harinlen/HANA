@@ -92,5 +92,8 @@
     <ClInclude Include="..\shared\hmr_bin_queue.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\shared\hmr_global.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
