@@ -278,7 +278,7 @@ def hana_op_build(op_id: list, op: dict, config: Config, status: dict):
     hana_standard_op(op_id, op, config, status, {
         "contigs": "$",
         "chromo": "-",
-        "output": "[+]#PROJECT_DIR,.fasta",
+        "output": "#PROJECT_DIR",
     }, {
         'contigs': ('-f', str, None, True),
         'chromo': ('-c', list, None, True),
