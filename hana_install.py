@@ -55,10 +55,14 @@ def make_hana_unix_like(work_dir: str):
         time_exit(1, 'Failed to create CMake work dir {}'.format(work_dir))
     # Call the cmake.
     os.chdir(work_dir)
-    cmake_proc = subprocess.Popen([cmake_path, os.path.join(HANA_DIR, 'modules'), '.'])
+    cmake_cmd = [cmake_path, os.path.join(HANA_DIR, 'modules'), '.']
+    time_print('> {}'.format(' '.join(cmake_cmd)))
+    cmake_proc = subprocess.Popen(cmake_cmd)
     cmake_proc.wait()
     # Do make inside the build directory.
-    make_proc = subprocess.Popen([make_path, '-j{}'.format(os.cpu_count())])
+    make_cmd = [make_path, '-j{}'.format(os.cpu_count())]
+    time_print('> {}'.format(' '.join(make_cmd)))
+    make_proc = subprocess.Popen(make_cmd)
     make_proc.wait()
     # Make a directory named 'bin' under the source code directory.
     os.makedirs(HANA_BIN_DIR, exist_ok=True)
