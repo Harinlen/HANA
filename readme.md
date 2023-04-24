@@ -4,23 +4,23 @@ High-performance Automated Next-generation AllHiC.
 
 ## Dependencies
 
-- MSVC / GCC with C++ 11 support
-- CMake
-- Python 3.10
+- MSVC / GCC with C++ 11 support (MSVC >= 19.0, GCC >= 4.8.1)
+- CMake (>=3.0)
+- Python 3.10 or later
+
+## Installation
+
+1. Installed the compiler and CMake that meets the requirement of HANA.
+2. Prepare the Python environment for HANA. Make sure when you run `python` it is calls a Python interpreter that meets the requirement.
+3. `cd` to HANA source code directory and run `python hana_install.py`.
 
 ## Usage
 
-### Arguments mode
+HANA operates using a combination of project and configuration file mode. 
 
 ```bash
-hana -p PROJECT_DIR -f FASTA_PATH -1 [FORWARD_PAIRS] -2 [REVERSE_PAIRS] -g 12
+hana PROJECT_DIR
 ```
-Arguments explanation:
-- `-p` or `--project-dir`: specify the project working directory.
-- `-f` or `--fasta`: the config FASTA file. Its suffix should be either `.fasta` or `.fasta.gz`.
-- `-1` or `--hic-forward`: the forward Hi-C FASTQ file. Its suffix should be `.fastq.gz`.
-- `-2` or `--hic-reverse`: the reverse Hi-C FASTQ file. Its suffix should be `.fastq.gz`.
-- `-g` or `--groups`: the number of chromosome groups.
 
 Optional arguments:
 
@@ -28,7 +28,3 @@ Optional arguments:
 ```bash
 hana /path/to/directory
 ```
-
-### Configuration file mode
-
-## Supported restriction sites

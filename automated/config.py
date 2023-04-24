@@ -11,6 +11,21 @@ HANA_DIR = os.path.dirname(SCRIPT_DIR)
 BIN_DIR = os.path.join(HANA_DIR, 'bin')
 
 
+def get_environ_paths():
+    if platform.system() == 'Windows':
+        raise NotImplementedError
+    return os.environ.get('PATH').split(':'), ''
+
+
+def search_binary(tool_name: str, bin_suffix: str, search_dirs: list):
+    bin_name = '{}{}'.format(tool_name, bin_suffix)
+    for dir_path in search_dirs:
+        expect_path = os.path.join(dir_path, bin_name)
+        if is_executable(expect_path):
+            return expect_path
+    return ''
+
+
 class Config:
     def __init__(self, dir_path: str):
         self.project_path = os.path.abspath(dir_path)
@@ -21,11 +36,7 @@ class Config:
             'mapq': 40,
         }
         self.ops = {}
-        if platform.system() == 'Windows':
-            raise NotImplementedError
-        else:
-            self.__search_dirs = os.environ.get('PATH').split(':')
-            self.__bin_suffix = ''
+        self.__search_dirs, self.__bin_suffix = get_environ_paths()
 
     def get_hana_binary(self, name: str):
         bin_name = 'hana_{}{}'.format(name, self.__bin_suffix)
@@ -101,12 +112,7 @@ class Config:
             if tool_name in path_config and is_executable(path_config[tool_name]):
                 return path_config[tool_name]
             # Search the binary in system path.
-            bin_name = '{}{}'.format(tool_name, self.__bin_suffix)
-            for dir_path in self.__search_dirs:
-                expect_path = os.path.join(dir_path, bin_name)
-                if is_executable(expect_path):
-                    return expect_path
-            return ''
+            return search_binary(tool_name, self.__bin_suffix, self.__search_dirs)
 
         status['bwa_path'] = find_tool('bwa')
         status['chromap_path'] = find_tool('chromap')
