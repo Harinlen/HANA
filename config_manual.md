@@ -1,0 +1,3 @@
+# HANA Configuration File Manual
+
+

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 import os
 import sys
-import argparse
 import automated.config as config
 import automated.ops as ops
 from automated.ui import time_print
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    import argparse
+    parser = argparse.ArgumentParser(prog='hana')
     parser.add_argument('project_dir', metavar='PROJECT_DIR', help='Project directory')
     return parser.parse_args()
 
