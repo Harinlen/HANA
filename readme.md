@@ -12,7 +12,8 @@ High-performance Automated Next-generation AllHiC.
 
 1. Installed the compiler and CMake that meets the requirement of HANA.
 2. Prepare the Python environment for HANA. Make sure when you run `python` it is calls a Python interpreter that meets the requirement.
-3. `cd` to HANA source code directory and run `python hana_install.py`.
+3. `cd` to HANA source code directory and run `python hana_install.py -i TARGET_DIR`, and make sure `TARGET_DIR` is in the environment path list.
+4. Now `hana` command is ready for usage.
 
 ## Usage
 
@@ -22,9 +23,4 @@ HANA operates using a combination of project and configuration file mode.
 hana PROJECT_DIR
 ```
 
-Optional arguments:
-
-- `-e` or `--enzyme`: the restriction sites used for the data. Can be a specific name or a small sequence. For more information, please check [HANA supported restriction sites](## Supported restriction sites). Default value is `HindIII`.
-```bash
-hana /path/to/directory
-```
+In the `PROJECT_DIR` path, it should contain a file named `hana_config.json`. To compose a `hana_config.json`, please check the [HANA configuration file manual](config_manual.md).

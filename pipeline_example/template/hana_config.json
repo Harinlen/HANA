@@ -16,7 +16,7 @@
     "bwa": "",
     "chromap": "",
     "samtools": ""
-  }
+  },
   "global": {
     "groups": 1,
     "threads": 1,
