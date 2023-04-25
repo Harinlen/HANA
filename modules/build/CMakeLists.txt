@@ -29,4 +29,4 @@ add_executable(hana_build
     src/args_build.cpp
     src/main.cpp
 )
-target_link_libraries(hana_build pthread ZLIB::ZLIB)
+target_link_libraries(hana_build pthread z)
