@@ -12,7 +12,7 @@ include_directories(src)
 include_directories(../shared/)
 
 # zlib
-find_package(ZLIB)
+# find_package(ZLIB)
 
 # Construct Binaries.
 add_executable(hana_extract
@@ -37,4 +37,4 @@ add_executable(hana_extract
     src/extract_mapping.cpp
     src/main.cpp
 )
-target_link_libraries(hana_extract pthread ZLIB::ZLIB)
+target_link_libraries(hana_extract pthread z)
