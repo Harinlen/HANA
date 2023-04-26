@@ -452,7 +452,7 @@ HMR_CONTIG_ID_VEC ordering_descent_optimize(int32_t phase, int npop, int ngen, u
         //Initialize the sequences.
         memcpy(ea.eva1[i].seq, info.init_genome, seq_bytes);
         //Shuffle the odd sequences.
-        if (i & 1)
+        if (phase == 0 && i)
         {
             std::shuffle(ea.eva1[i].seq, ea.eva1[i].seq + info.contig_size, ea.rng);
         }
