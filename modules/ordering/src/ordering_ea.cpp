@@ -8,7 +8,7 @@
 
 #include "hmr_ui.hpp"
 
-#include "ordering_descent.hpp"
+#include "ordering_ea.hpp"
 
 constexpr double LIMIT = 10000000;
 const double LimitLog = log(LIMIT);
@@ -122,7 +122,7 @@ void ordering_evaluate_sort(ORDERING_EVA* eva, int32_t seqs_count)
     std::sort(eva, eva + seqs_count,
         [](const ORDERING_EVA& lhs, const ORDERING_EVA& rhs)
         {
-            return lhs.score > rhs.score;
+            return lhs.score < rhs.score;
         });
 }
 
@@ -382,6 +382,15 @@ void ordering_generate_offsprings(ORDERING_EVA* parents, ORDERING_EVA* offspring
 inline void ordering_update_best(ORDERING_EA& ea, size_t seq_bytes)
 {
     ORDERING_EVA& best_eva = ea.current_eva[0];
+//    for(auto i=0; i<ea.num_of_seqs; ++i)
+//    {
+//        printf("%.2lf\t", ea.current_eva[i].score);
+//    }
+//    printf("\n");
+//    if(ea.current_eva[0].score != ea.current_eva[1].score)
+//    {
+//        exit(1);
+//    }
     double best_score = -best_eva.score;
     if (best_score > ea.best_score)
     {
@@ -391,7 +400,7 @@ inline void ordering_update_best(ORDERING_EA& ea, size_t seq_bytes)
     }
 }
 
-void ordering_descent_init(const HMR_CONTIG_ID_VEC& contig_group, const HMR_NODES& contigs, ORDERING_INFO& info)
+void ordering_ea_init(const HMR_CONTIG_ID_VEC& contig_group, const HMR_NODES& contigs, ORDERING_INFO& info)
 {
     //Loop for all the ids in the group.
     for (size_t i = 0; i < contig_group.size(); ++i)
@@ -401,7 +410,7 @@ void ordering_descent_init(const HMR_CONTIG_ID_VEC& contig_group, const HMR_NODE
     }
 }
 
-HMR_CONTIG_ID_VEC ordering_descent_optimize(int32_t phase, int npop, int ngen, uint64_t maxgen, double mutapb, ORDERING_INFO& info, std::mt19937_64& rng, int threads)
+HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64_t maxgen, double mutapb, ORDERING_INFO& info, std::mt19937_64& rng, int threads)
 {
     //Configure the threads.
     bool is_single = threads < 2;

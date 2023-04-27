@@ -9,7 +9,7 @@
 #include "hmr_path.hpp"
 
 #include "ordering_loader.hpp"
-#include "ordering_descent.hpp"
+#include "ordering_ea.hpp"
 
 #include "args_ordering.hpp"
 
@@ -74,8 +74,8 @@ int main(int argc, char* argv[])
     for (int32_t phase = 0; phase < 2; ++phase)
     {
         time_print("Starting evaluation algorithm phase %d...", phase + 1);
-        ordering_descent_init(contig_group, contigs, info);
-        contig_group = ordering_descent_optimize(phase + 1, opts.npop, opts.ngen, opts.max_gen, opts.mutapb, info, rng, opts.threads);
+        ordering_ea_init(contig_group, contigs, info);
+        contig_group = ordering_ea_optimize(phase + 1, opts.npop, opts.ngen, opts.max_gen, opts.mutapb, info, rng, opts.threads);
     }
     free(info.init_genome);
     //Dump the data to output file.
