@@ -111,8 +111,6 @@ void ordering_evaluate_calc(ORDERING_EVA* eva, int32_t seqs_count, int32_t seq_l
         if (!eva[i].evaluated)
         {
             eva[i].score = ordering_evaluate_sequence(eva[i].seq, seq_length, edges);
-//            printf("%lf\n", eva[i].score);
-//            exit(1);
             eva[i].evaluated = true;
         }
     }
@@ -235,62 +233,6 @@ void ordering_mutate(ORDERING_EVA& candidate, int32_t seq_length, std::mt19937_6
     }
 }
 
-void ordering_mutate_worker(const int32_t idx, const int32_t threads, const ORDERING_INFO* info, ORDERING_EA* ea)
-{
-    int32_t start_idx, end_idx;
-    {
-        int32_t step = (ea->num_of_seqs + threads - 1) / threads;
-        start_idx = idx * step;
-        end_idx = start_idx + step;
-        if (end_idx > ea->num_of_seqs)
-        {
-            end_idx = ea->num_of_seqs;
-        }
-    }
-    std::unique_lock<std::mutex> lock(ea->mutate_mutex);
-    std::mt19937_64 rng(ea->mutate_seeds[idx]);
-    std::uniform_real_distribution<double> rate(0.0, 1.0);
-    const double mut_rate = ea->mut_rate;
-    const int32_t seq_length = info->contig_size;
-    const ORDERING_COUNTS& edges = info->edges;
-    while (true)
-    {
-        //Wait for the start signal.
-        ea->mutate_cv.wait(lock, [&] { return ea->mutate_flag[idx]; });
-        if (ea->mutate_exit)
-        {
-            //Just exit the thread.
-            break;
-        }
-        //Loop in thread range and handle the data.
-        ORDERING_EVA* eva = ea->target_eva;
-        for (int32_t i = start_idx; i < end_idx; ++i)
-        {
-            if (rate(rng) < mut_rate)
-            {
-                ordering_mutate(eva[i], seq_length, rng);
-            }
-            if (!eva[i].evaluated)
-            {
-                eva[i].score = ordering_evaluate_sequence(eva[i].seq, seq_length, edges);
-                eva[i].evaluated = true;
-            }
-        }
-        //Disable the available flag.
-        ea->mutate_flag[idx] = false;
-        //Process the data based on the threads.
-        {
-            ea->complete_thread_lock.lock();
-            ++ea->mutate_complete_counter;
-            ea->complete_thread_lock.unlock();
-        }
-        if (ea->mutate_complete_counter == threads)
-        {
-            ea->mutate_complete_cv.notify_one();
-        }
-    }
-}
-
 typedef std::vector<int32_t> ORDERING_IDS;
 ORDERING_IDS ordering_select_contestants(int32_t n, ORDERING_IDS& candidates, std::mt19937_64& rng)
 {
@@ -358,21 +300,21 @@ void ordering_clone_seq(ORDERING_EVA& dst, const ORDERING_EVA& src, size_t seq_b
 }
 
 void ordering_generate_offsprings(ORDERING_EVA* parents, ORDERING_EVA* offsprings,
-    int32_t seqs_count, size_t seq_bytes, std::mt19937_64& rng)
+    int32_t offspring_index, int32_t offspring_index_end, int32_t seqs_count,
+                                  const size_t seq_bytes, std::mt19937_64& rng)
 {
     //Loop until the offsprings are filled.
-    int32_t offspring_index = 0;
-    while (offspring_index < seqs_count)
+    while (offspring_index < offspring_index_end)
     {
         //Select 2 parents from 3 contestants.
         ORDERING_IDS selected = ordering_select_n_parents(2, 3, parents, seqs_count, rng);
         //Create the offsprings.
-        if (offspring_index < seqs_count)
+        if (offspring_index < offspring_index_end)
         {
             ordering_clone_seq(offsprings[offspring_index], parents[selected[0]], seq_bytes);
             ++offspring_index;
         }
-        if (offspring_index < seqs_count)
+        if (offspring_index < offspring_index_end)
         {
             ordering_clone_seq(offsprings[offspring_index], parents[selected[1]], seq_bytes);
             ++offspring_index;
@@ -380,18 +322,69 @@ void ordering_generate_offsprings(ORDERING_EVA* parents, ORDERING_EVA* offspring
     }
 }
 
+void ordering_offspring_worker(const int32_t idx, const int32_t threads, const ORDERING_INFO* info, size_t seq_bytes, ORDERING_EA* ea)
+{
+    int32_t start_idx, end_idx;
+    {
+        int32_t step = (ea->num_of_seqs + threads - 1) / threads;
+        start_idx = idx * step;
+        end_idx = start_idx + step;
+        if (end_idx > ea->num_of_seqs)
+        {
+            end_idx = ea->num_of_seqs;
+        }
+    }
+    std::unique_lock<std::mutex> lock(ea->mutate_mutex);
+    std::mt19937_64 rng(ea->mutate_seeds[idx]);
+    std::uniform_real_distribution<double> rate(0.0, 1.0);
+    const double mut_rate = ea->mut_rate;
+    const int32_t seq_length = info->contig_size;
+    const ORDERING_COUNTS& edges = info->edges;
+    while (true)
+    {
+        //Wait for the start signal.
+        ea->mutate_cv.wait(lock, [&] { return ea->mutate_flag[idx]; });
+        if (ea->mutate_exit)
+        {
+            //Just exit the thread.
+            break;
+        }
+        //Loop in thread range and handle the data.
+        ORDERING_EVA* source = ea->current_eva;
+        ORDERING_EVA* target = ea->target_eva;
+        //Generate offsprings.
+        ordering_generate_offsprings(source, target, start_idx, end_idx, ea->num_of_seqs, seq_bytes, rng);
+        //Mutate offsprings.
+        for (int32_t i = start_idx; i < end_idx; ++i)
+        {
+            if (rate(rng) < mut_rate)
+            {
+                ordering_mutate(target[i], seq_length, rng);
+            }
+            if (!target[i].evaluated)
+            {
+                target[i].score = ordering_evaluate_sequence(target[i].seq, seq_length, edges);
+                target[i].evaluated = true;
+            }
+        }
+        //Disable the available flag.
+        ea->mutate_flag[idx] = false;
+        //Process the data based on the threads.
+        {
+            ea->complete_thread_lock.lock();
+            ++ea->mutate_complete_counter;
+            ea->complete_thread_lock.unlock();
+        }
+        if (ea->mutate_complete_counter == threads)
+        {
+            ea->mutate_complete_cv.notify_one();
+        }
+    }
+}
+
 inline void ordering_update_best(ORDERING_EA& ea, size_t seq_bytes)
 {
     ORDERING_EVA& best_eva = ea.current_eva[0];
-//    for(auto i=0; i<ea.num_of_seqs; ++i)
-//    {
-//        printf("%.2lf\t", ea.current_eva[i].score);
-//    }
-//    printf("\n");
-//    if(ea.current_eva[0].score != ea.current_eva[1].score)
-//    {
-//        exit(1);
-//    }
     double best_score = -best_eva.score;
     if (best_score > ea.best_score)
     {
@@ -444,7 +437,7 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         {
             ea.mutate_seeds[i] = ea.rng();
             ea.mutate_flag[i] = false;
-            mutate_workers[i] = std::thread(ordering_mutate_worker, i, threads, &info, &ea);
+            mutate_workers[i] = std::thread(ordering_offspring_worker, i, threads, &info, seq_bytes, &ea);
         }
     }
     //Activate sequence 1.
@@ -462,10 +455,10 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         //Initialize the sequences.
         memcpy(ea.eva1[i].seq, info.init_genome, seq_bytes);
         //Shuffle the odd sequences.
-//        if (phase == 0 && i)
-//        {
-//            std::shuffle(ea.eva1[i].seq, ea.eva1[i].seq + info.contig_size, ea.rng);
-//        }
+        if (phase == 0 && i)
+        {
+            std::shuffle(ea.eva1[i].seq, ea.eva1[i].seq + info.contig_size, ea.rng);
+        }
         ea.eva1[i].evaluated = false;
         ea.eva1[i].score = std::numeric_limits<double>::max();
     }
@@ -498,11 +491,12 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         {
             ea.target_eva[i].seq = ea.target_buffer + i * info.contig_size;
         }
-        //Generate the offspring at target eva matrix.
-        ordering_generate_offsprings(ea.current_eva, ea.target_eva, ea.num_of_seqs, seq_bytes, gen_rng);
         //Mutate the candidates.
         if (is_single)
         {
+            //Generate the offspring at target eva matrix.
+            ordering_generate_offsprings(ea.current_eva, ea.target_eva, 0, ea.num_of_seqs, ea.num_of_seqs, seq_bytes, gen_rng);
+            //Mutate the offsprings.
             for (int32_t i = 0; i < ea.num_of_seqs; ++i)
             {
                 if (rate(gen_rng) < ea.mut_rate)
