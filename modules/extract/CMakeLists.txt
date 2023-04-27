@@ -26,6 +26,7 @@ add_executable(hana_extract
     ../shared/hmr_enzyme.cpp
     ../shared/hmr_fasta.cpp
     ../shared/hmr_gz.cpp
+    ../shared/hmr_pairs.cpp
     ../shared/hmr_path.cpp
     ../shared/hmr_seq.cpp
     ../shared/hmr_text_file.cpp

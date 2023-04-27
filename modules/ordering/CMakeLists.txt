@@ -21,7 +21,7 @@ add_executable(hana_ordering
     ../shared/hmr_ui.cpp
     src/args_ordering.cpp
     src/main.cpp
-    src/ordering_descent.cpp
+    src/ordering_ea.cpp
     src/ordering_loader.cpp
 )
 target_link_libraries(hana_ordering pthread)
