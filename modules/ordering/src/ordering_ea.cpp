@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <thread>
 
+#include "hmr_algorithm.hpp"
 #include "hmr_ui.hpp"
 
 #include "ordering_ea.hpp"
@@ -49,16 +50,14 @@ int32_t ordering_ea_get_links(int32_t a, int32_t b, const ORDERING_COUNTS& edges
 {
     if (a > b)
     {
-        int32_t temp = a;
-        a = b;
-        b = temp;
+        hmr_swap(a, b);
     }
-    const auto& a_iter = edges.find(a);
+    auto a_iter = edges.find(a);
     if (a_iter == edges.end())
     {
         return 0;
     }
-    const auto& b_iter = a_iter->second.find(b);
+    auto b_iter = a_iter->second.find(b);
     return b_iter == a_iter->second.end() ? 0 : b_iter->second;
 }
 
@@ -97,7 +96,7 @@ double ordering_evaluate_sequence(ORDERING_TIG* seq, int32_t seq_length, const O
                 break;
             }
             // We are looking for maximum
-            score -= double(n_links) / dist;
+            score -= static_cast<double>(n_links) / dist;
         }
     }
     free(mid);
@@ -112,6 +111,8 @@ void ordering_evaluate_calc(ORDERING_EVA* eva, int32_t seqs_count, int32_t seq_l
         if (!eva[i].evaluated)
         {
             eva[i].score = ordering_evaluate_sequence(eva[i].seq, seq_length, edges);
+//            printf("%lf\n", eva[i].score);
+//            exit(1);
             eva[i].evaluated = true;
         }
     }
@@ -461,10 +462,10 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         //Initialize the sequences.
         memcpy(ea.eva1[i].seq, info.init_genome, seq_bytes);
         //Shuffle the odd sequences.
-        if (phase == 0 && i)
-        {
-            std::shuffle(ea.eva1[i].seq, ea.eva1[i].seq + info.contig_size, ea.rng);
-        }
+//        if (phase == 0 && i)
+//        {
+//            std::shuffle(ea.eva1[i].seq, ea.eva1[i].seq + info.contig_size, ea.rng);
+//        }
         ea.eva1[i].evaluated = false;
         ea.eva1[i].score = std::numeric_limits<double>::max();
     }

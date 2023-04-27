@@ -27,15 +27,16 @@ void orientation_init(std::vector<char*> seq_paths, const HMR_NODES& nodes, ORIE
             info.belongs[contig_id] = i;
         }
         //Allocate memory for the sequences.
-        seq.cost_buffer = static_cast<double*>(malloc(sizeof(double) * (seq.contig_id_seq.size() << 1)));
+        const size_t buffer_size = seq.contig_id_seq.size() << 1;
+        seq.cost_buffer = static_cast<double*>(malloc(sizeof(double) * buffer_size));
         if (!seq.cost_buffer)
         {
             time_error(-1, "Failed to allocate memory for the cost matrix.");
         }
         assert(seq.cost_buffer);
-        for (size_t i = 0, i_max = (seq.contig_id_seq.size() << 1); i < i_max; ++i)
+        for (size_t j = 0; j < buffer_size; ++j)
         {
-            seq.cost_buffer[i] = 0.0;
+            seq.cost_buffer[j] = 0.0;
         }
         seq.cost_matrix[DIRECTION_POSITIVE] = seq.cost_buffer;
         seq.cost_matrix[DIRECTION_NEGATIVE] = seq.cost_buffer + seq.contig_id_seq.size();
@@ -47,10 +48,10 @@ void orientation_init(std::vector<char*> seq_paths, const HMR_NODES& nodes, ORIE
         }
         assert(seq.contig_size);
         //Build the contig->index hash map for storage.
-        for (size_t i = 0; i < seq.contig_id_seq.size(); ++i)
+        for (size_t j = 0; j < seq.contig_id_seq.size(); ++j)
         {
-            seq.contig_id_map.insert(std::make_pair(seq.contig_id_seq[i], static_cast<int32_t>(i)));
-            seq.contig_size[i] = static_cast<double>(nodes[seq.contig_id_map[i]].length);
+            seq.contig_id_map.insert(std::make_pair(seq.contig_id_seq[j], static_cast<int32_t>(j)));
+            seq.contig_size[j] = static_cast<double>(nodes[seq.contig_id_seq[j]].length);
         }
     }
 }
@@ -72,17 +73,17 @@ void orientation_calc_gradient(HMR_MAPPING* mapping, int32_t buf_size, void* use
             pos_b_in_seq = seq.contig_id_map.find(pair.next_refID)->second;
         if (pos_a_in_seq > pos_b_in_seq)
         {
-            seq.cost_matrix[DIRECTION_POSITIVE][pos_a_in_seq] += seq.contig_size[pos_a_in_seq] - mapping->pos;
-            seq.cost_matrix[DIRECTION_NEGATIVE][pos_a_in_seq] += mapping->pos;
-            seq.cost_matrix[DIRECTION_POSITIVE][pos_b_in_seq] += mapping->next_pos;
-            seq.cost_matrix[DIRECTION_NEGATIVE][pos_b_in_seq] += seq.contig_size[pos_b_in_seq] - mapping->next_pos;
+            seq.cost_matrix[DIRECTION_POSITIVE][pos_a_in_seq] += static_cast<double>(pair.pos);
+            seq.cost_matrix[DIRECTION_NEGATIVE][pos_a_in_seq] += seq.contig_size[pos_a_in_seq] - static_cast<double>(pair.pos);
+            seq.cost_matrix[DIRECTION_POSITIVE][pos_b_in_seq] += seq.contig_size[pos_b_in_seq] - static_cast<double>(pair.next_pos);
+            seq.cost_matrix[DIRECTION_NEGATIVE][pos_b_in_seq] += static_cast<double>(pair.next_pos);
         }
         else
         {
-            seq.cost_matrix[DIRECTION_POSITIVE][pos_a_in_seq] += mapping->pos;
-            seq.cost_matrix[DIRECTION_NEGATIVE][pos_a_in_seq] += seq.contig_size[pos_a_in_seq] - mapping->pos;
-            seq.cost_matrix[DIRECTION_POSITIVE][pos_b_in_seq] += seq.contig_size[pos_b_in_seq] - mapping->next_pos;
-            seq.cost_matrix[DIRECTION_NEGATIVE][pos_b_in_seq] += mapping->next_pos;
+            seq.cost_matrix[DIRECTION_POSITIVE][pos_a_in_seq] += seq.contig_size[pos_a_in_seq] - static_cast<double>(pair.pos);
+            seq.cost_matrix[DIRECTION_NEGATIVE][pos_a_in_seq] += static_cast<double>(pair.pos);
+            seq.cost_matrix[DIRECTION_POSITIVE][pos_b_in_seq] += static_cast<double>(pair.next_pos);
+            seq.cost_matrix[DIRECTION_NEGATIVE][pos_b_in_seq] += seq.contig_size[pos_b_in_seq] - static_cast<double>(pair.next_pos);
         }
     }
 }
