@@ -24,7 +24,7 @@ def parse_args():
 
 
 def make_hana_bash(dir_path: str, hana_dir: str):
-    hana_bash = os.path.join(dir_path, 'hana')
+    hana_bash = os.path.join(dir_path, 'hana_scaffold')
     try:
         with open(hana_bash, 'w') as hana_bash_file:
             hana_bash_file.write('\n'.join([
@@ -32,7 +32,7 @@ def make_hana_bash(dir_path: str, hana_dir: str):
                 '{} {} "$@"'.format(sys.executable, os.path.join(hana_dir, 'hana_pipeline.py'))
             ]))
     except IOError:
-        time_exit(1, 'Failed to compose hana binary wrapper under {}'.format(dir_path))
+        time_exit(1, 'Failed to compose hana_scaffold binary wrapper under {}'.format(dir_path))
     # Add executable.
     bash_stat = os.stat(hana_bash)
     os.chmod(hana_bash, bash_stat.st_mode | stat.S_IEXEC)
@@ -76,7 +76,7 @@ def make_hana_unix_like(work_dir: str):
     for hana_bin in HANA_COMPONENTS:
         shutil.copy2(os.path.join(work_dir, hana_bin, 'hana_{}'.format(hana_bin)),
                      os.path.join(HANA_BIN_DIR, 'hana_{}'.format(hana_bin)))
-    # Create the hana call bash.
+    # Create the hana_scaffold call bash.
     make_hana_bash(HANA_DIR, HANA_DIR)
 
 

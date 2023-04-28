@@ -75,6 +75,9 @@
     <ClCompile Include="..\shared\hmr_algorithm.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\shared\hmr_pairs.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\args_extract.hpp">
@@ -153,6 +156,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\shared\hmr_algorithm.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\shared\hmr_pairs.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

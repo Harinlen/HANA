@@ -20,7 +20,7 @@ High-performance Automated Next-generation AllHiC.
 HANA operates using a combination of project and configuration file mode. 
 
 ```bash
-hana PROJECT_DIR
+hana_scaffold PROJECT_DIR
 ```
 
 In the `PROJECT_DIR` path, it should contain a file named `hana_config.json`. To compose a `hana_config.json`, please check the [HANA configuration file manual](config_manual.md).

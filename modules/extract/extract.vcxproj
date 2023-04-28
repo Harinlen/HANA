@@ -151,6 +151,7 @@
     <ClCompile Include="..\shared\hmr_enzyme.cpp" />
     <ClCompile Include="..\shared\hmr_fasta.cpp" />
     <ClCompile Include="..\shared\hmr_gz.cpp" />
+    <ClCompile Include="..\shared\hmr_pairs.cpp" />
     <ClCompile Include="..\shared\hmr_path.cpp" />
     <ClCompile Include="..\shared\hmr_seq.cpp" />
     <ClCompile Include="..\shared\hmr_text_file.cpp" />
@@ -177,6 +178,7 @@
     <ClInclude Include="..\shared\hmr_fasta.hpp" />
     <ClInclude Include="..\shared\hmr_global.hpp" />
     <ClInclude Include="..\shared\hmr_gz.hpp" />
+    <ClInclude Include="..\shared\hmr_pairs.hpp" />
     <ClInclude Include="..\shared\hmr_path.hpp" />
     <ClInclude Include="..\shared\hmr_seq.hpp" />
     <ClInclude Include="..\shared\hmr_text_file.hpp" />
