@@ -312,7 +312,51 @@ int dump_allele_table(int argc, char* argv[])
     return 0;
 }
 
-
+int dump_chromo(int argc, char* argv[])
+{
+    if (argc < 2)
+    {
+        printf("Usage: chromo [group file path] -n [nodes file path]\n");
+    }
+    //Read the arguments.
+    parse_arguments(argc - 1, argv + 1);
+    //Get the bam file path.
+    const char* filepath = argv[1];
+    if (!path_can_read(filepath))
+    {
+        printf("Failed to open chromo file %s\n", filepath);
+        exit(-1);
+    }
+    if (!opts.nodes)
+    {
+        printf("Please provide the node file path.\n");
+        exit(-1);
+    }
+    if (!path_can_read(opts.nodes))
+    {
+        printf("Failed to open node file %s\n", opts.nodes);
+        exit(-1);
+    }
+    std::string output_path = std::string(filepath) + ".txt";
+    FILE* dump_file;
+    if (!text_open_write(output_path.c_str(), &dump_file))
+    {
+        time_error(-1, "Failed to open output file.");
+    }
+    //Load the contigs.
+    HMR_CONTIGS node_infos;
+    hmr_graph_load_contigs(opts.nodes, node_infos.contigs, &node_infos.names);
+    //Load the group.
+    CHROMOSOME_CONTIGS seq;
+    hmr_graph_load_chromosome(filepath, seq);
+    fprintf(dump_file, "#\tContig\tLength\tDirection\n");
+    for (const HMR_DIRECTED_CONTIG &contig : seq)
+    {
+        fprintf(dump_file, "%d\t%s\t%d\t%c\n", contig.id, node_infos.names[contig.id].name, node_infos.contigs[contig.id].length, contig.direction ? '-' : '+');
+    }
+    fclose(dump_file);
+    return 0;
+}
 
 std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
     {"bam", dump_bam},
@@ -321,6 +365,7 @@ std::unordered_map<std::string, DUMP_PROC> dump_proc_map = {
     {"reads", dump_reads},
     {"edges", dump_edges},
     {"allele", dump_allele_table},
+    {"chromo", dump_chromo},
 };
 
 void help_exit()

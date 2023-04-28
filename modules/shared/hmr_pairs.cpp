@@ -5,7 +5,7 @@
 
 #include "hmr_pairs.hpp"
 
-void hmr_pairs_fill_tabs(const char *line, size_t line_size, size_t *tab_stops, int &tab_stop_count)
+void hmr_pairs_fill_tabs(char *line, size_t line_size, size_t *tab_stops, int &tab_stop_count)
 {
     //Find 7 tabs from the line.
     tab_stop_count = 0;
@@ -14,6 +14,7 @@ void hmr_pairs_fill_tabs(const char *line, size_t line_size, size_t *tab_stops, 
         if(line[i] == '\t')
         {
             tab_stops[tab_stop_count] = i;
+            line[i] = '\0';
             ++tab_stop_count;
         }
     }
@@ -51,10 +52,9 @@ void hmr_pairs_read(const char *filepath, PAIR_PROC proc, void *user)
             continue;
         }
         //Increase the position to be the start position.
-        ++tab_stops[0];
-        ++tab_stops[2];
-        sscanf(line + tab_stops[1], "%d", &line_pos_0);
-        sscanf(line + tab_stops[3], "%d", &line_pos_1);
+        ++tab_stops[0]; ++tab_stops[2];
+        line_pos_0 = atoi(line + tab_stops[1] + 1);
+        line_pos_1 = atoi(line + tab_stops[3] + 1);
         proc(line + tab_stops[0], tab_stops[1] - tab_stops[0],
                 line + tab_stops[2], tab_stops[3] - tab_stops[2],
                 line_pos_0, line_pos_1, line + tab_stops[6] + 1, user);

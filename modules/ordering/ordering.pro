@@ -16,7 +16,7 @@ SOURCES += \
     ../shared/hmr_ui.cpp \
     src/args_ordering.cpp \
     src/main.cpp \
-    src/ordering_descent.cpp \
+    src/ordering_ea.cpp \
     src/ordering_loader.cpp
 
 HEADERS += \
@@ -29,6 +29,6 @@ HEADERS += \
     ../shared/hmr_path.hpp \
     ../shared/hmr_ui.hpp \
     src/args_ordering.hpp \
-    src/ordering_descent.hpp \
+    src/ordering_ea.hpp \
     src/ordering_loader.hpp \
     src/ordering_type.hpp

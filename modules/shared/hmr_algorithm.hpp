@@ -111,4 +111,12 @@ inline void hmr_remove_one(std::vector<T> &vec, T value)
     }
 }
 
+template <typename T>
+inline void hmr_swap(T &a, T &b)
+{
+    T temp = a;
+    a = b;
+    b = temp;
+}
+
 #endif // HMR_ALGORITHM_H

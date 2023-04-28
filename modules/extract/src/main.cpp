@@ -42,6 +42,7 @@ int main(int argc, char* argv[])
     time_print("\tBAM minimum map quality: %d", opts.mapq);
     time_print("\tRestriction enzyme: %s", opts.enzyme);
     time_print("\tValid enzyme distance of Hi-C pairs: %dx2", opts.range);
+    time_print("\tRead length used for pairs file: %d", opts.pairs_read_len);
     time_print("\tMapping file(s): %zu", opts.mappings.size());
     time_print("\tThreads: %d", opts.threads);
     time_print("\tFASTA search buffer records size / thread: %d", opts.fasta_pool);
@@ -121,7 +122,7 @@ int main(int argc, char* argv[])
     for (char* mapping_path : opts.mappings)
     {
         time_print("Loading reads from %s", mapping_path);
-        extract_mapping_file(mapping_path, &contig_index_map, reads_file, &contig_enzyme_ranges, check_flag, opts.mapq, opts.mapping_pool, opts.threads);
+        extract_mapping_file(mapping_path, &contig_index_map, reads_file, &contig_enzyme_ranges, check_flag, opts.pairs_read_len, opts.mapq, opts.mapping_pool, opts.threads);
     }
     fclose(reads_file);
     time_print("Extract complete.");

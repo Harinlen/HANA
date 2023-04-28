@@ -9,8 +9,6 @@
 #include "hmr_path.hpp"
 #include "hmr_ui.hpp"
 
-#include "extract_fasta_type.hpp"
-
 #include "extract_mapping.hpp"
 
 bool range_in_range(int32_t pos, uint32_t length, const CONTIG_ENZYME_RANGE& ranges)
@@ -350,29 +348,153 @@ void extract_bam_read_align(size_t, const BAM_BLOCK_HEADER* bam_block, void* use
 // ------ BAM Workers End ------
 
 // ------ Pairs Worker ------
+typedef struct PAIRS_MAPPING_INFO
+{
+    int32_t refID;
+    int32_t pos;
+    int32_t next_refID;
+    int32_t next_pos;
+} PAIRS_MAPPING_INFO;
+
+typedef struct PAIRS_MAPPING_BUFFER
+{
+    PAIRS_MAPPING_INFO* buffer;
+    size_t buffer_size, buffer_offset;
+} PAIRS_MAPPING_BUFFER;
+
 typedef struct PAIR_EXTRACTOR
 {
+    CONTIG_ENZYME_RANGES *contig_enzyme_ranges;
     FILE *reads_file;
     CONTIG_INDEX_MAP* index_map;
+    PAIRS_MAPPING_BUFFER buf_0, buf_1;
+    PAIRS_MAPPING_BUFFER* buf_filling = NULL, * buf_filtering = NULL;
+    MAPPING_WORKER_SYNC sync;
+    int32_t read_len = 150;
+    uint16_t check_flag = 0;
 } PAIR_EXTRACTOR;
 
-void extract_pairs_proc(const char *ref, size_t ref_len, const char *next_ref, size_t next_ref_len,
-                        int32_t pos, int32_t next_pos, const char *types, void *user)
+void pairs_mapping_buffer_init(PAIRS_MAPPING_BUFFER& buf, size_t buffer_size)
 {
-    PAIR_EXTRACTOR *pair_extractor = static_cast<PAIR_EXTRACTOR *>(user);
+    buf.buffer = static_cast<PAIRS_MAPPING_INFO*>(malloc(sizeof(PAIRS_MAPPING_INFO) * buffer_size));
+    if (!buf.buffer)
+    {
+        time_error(-1, "Failed to allocate memory for mapping info buffer.");
+    }
+    assert(buf.buffer);
+    buf.buffer_offset = 0;
+    buf.buffer_size = buffer_size;
+}
+
+void pairs_mapping_buffer_free(PAIRS_MAPPING_BUFFER& buf)
+{
+    free(buf.buffer);
+}
+
+inline bool pairs_mapping_buffer_is_full(PAIRS_MAPPING_BUFFER* buffer)
+{
+    return buffer->buffer_offset == buffer->buffer_size;
+}
+
+void pairs_extractor_init(PAIR_EXTRACTOR& extractor, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, FILE *reads_file, CONTIG_INDEX_MAP* index_map, int32_t thread_buffer_size, int32_t num_of_worker, int32_t pairs_read_len, uint16_t check_flag)
+{
+    size_t buffer_size = static_cast<size_t>(thread_buffer_size * num_of_worker);
+    mapping_worker_sync_init(extractor.sync, reads_file, num_of_worker);
+    extractor.contig_enzyme_ranges = contig_enzyme_ranges;
+    extractor.reads_file = reads_file;
+    extractor.index_map = index_map;
+    //Initialize the pair parser.
+    pairs_mapping_buffer_init(extractor.buf_0, buffer_size);
+    pairs_mapping_buffer_init(extractor.buf_1, buffer_size);
+    extractor.buf_filling = &extractor.buf_0;
+    extractor.buf_filtering = &extractor.buf_1;
+    extractor.read_len = pairs_read_len;
+    extractor.check_flag = check_flag;
+}
+
+void pairs_extractor_free(PAIR_EXTRACTOR& extractor)
+{
+    pairs_mapping_buffer_free(extractor.buf_0);
+    pairs_mapping_buffer_free(extractor.buf_1);
+    mapping_worker_sync_free(extractor.sync);
+}
+
+void extract_mapping_pairs_worker(int32_t id, MAPPING_WORKER &worker, PAIR_EXTRACTOR &extractor)
+{
+    MAPPING_WORKER_SYNC& sync = extractor.sync;
+    std::unique_lock<std::mutex> lock(sync.start_mutex[id]);
+    while (!sync.exit)
+    {
+        //Wait for the start signal.
+        sync.start_cv[id].wait(lock, [&] {return sync.start_signal[id]; });
+        if (sync.exit)
+        {
+            return;
+        }
+        //Loop in the worker area.
+        PAIRS_MAPPING_BUFFER* filtering_buf = extractor.buf_filtering;
+        for (int32_t i = worker.start_pos; i < worker.end_pos; ++i)
+        {
+            PAIRS_MAPPING_INFO& mapping_info = filtering_buf->buffer[i];
+            //Check whether the mapping info is valid, then check whether the position is in range.
+            if ((mapping_info.refID == mapping_info.next_refID) // We don't care about the pairs on the same contigs.
+                || ((extractor.check_flag & CHECK_FLAG_RANGE) && (!range_in_range(mapping_info.pos, extractor.read_len, (*extractor.contig_enzyme_ranges)[mapping_info.refID])))) // Or the position is not in the position.
+            {
+                continue;
+            }
+            //Save the mapping info to the buffer.
+            if (mapping_buffer_is_full(worker.valid_buffer))
+            {
+                mapping_worker_sync_dump(extractor.sync, worker.valid_buffer);
+            }
+            mapping_buffer_push(worker.valid_buffer, HMR_MAPPING{ mapping_info.refID, mapping_info.pos, mapping_info.next_refID, mapping_info.next_pos });
+        }
+        //Reset the start signal.
+        sync.start_signal[id] = false;
+        //Increase the sync counter.
+        mapping_worker_sync_complete_one(extractor.sync);
+    }
+}
+
+void extract_pairs_proc(const char *ref, size_t ref_len, const char *next_ref, size_t next_ref_len,
+                        int32_t pos, int32_t next_pos, const char *, void *user)
+{
+    PAIR_EXTRACTOR *pairs_extractor = static_cast<PAIR_EXTRACTOR *>(user);
     //Search the ref and next ref.
-    CONTIG_INDEX_MAP* index_map = pair_extractor->index_map;
+    CONTIG_INDEX_MAP* index_map = pairs_extractor->index_map;
     auto ref_iter = index_map->find(std::string(ref, ref_len)),
             next_iter = index_map->find(std::string(next_ref, next_ref_len));
     if(ref_iter == index_map->end() || next_iter == index_map->end())
     {
         return;
     }
-    //Extract the index of the ref and next ref.
+    if(pairs_mapping_buffer_is_full(pairs_extractor->buf_filling))
+    {
+        //Wait for all the workers are ready.
+        mapping_worker_sync_wait_ready(pairs_extractor->sync);
+        //Swap the filling and processing buffer.
+        PAIRS_MAPPING_BUFFER* temp = pairs_extractor->buf_filling;
+        pairs_extractor->buf_filling = pairs_extractor->buf_filtering;
+        pairs_extractor->buf_filtering = temp;
+        //Start to process the filling buffer.
+        mapping_worker_sync_start(pairs_extractor->sync);
+        //Reset the filling offset.
+        pairs_extractor->buf_filling->buffer_offset = 0;
+    }
+    //Save the data to buffer filling.
+    PAIRS_MAPPING_BUFFER* filling = pairs_extractor->buf_filling;
+    filling->buffer[filling->buffer_offset] = PAIRS_MAPPING_INFO
+    {
+        ref_iter->second,
+        pos,
+        next_iter->second,
+        next_pos
+    };
+    ++filling->buffer_offset;
 }
 // ------ Pairs Worker End ------
 
-void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FILE* reads_file, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint16_t check_flag, uint8_t mapq, int32_t thread_buffer_size, int32_t threads)
+void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FILE* reads_file, CONTIG_ENZYME_RANGES* contig_enzyme_ranges, uint16_t check_flag, int32_t pairs_read_len, uint8_t mapq, int32_t thread_buffer_size, int32_t threads)
 {
     if (path_ends_with(filepath, ".bam"))
     {
@@ -426,12 +548,36 @@ void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FIL
         delete[] worker_buffer;
         return;
     }
-//    if (path_ends_with(filepath, ".pairs"))
-//    {
-//        PAIR_EXTRACTOR pair_extractor { reads_file, index_map };
-//        //Initialize the pair parser.
-//        hmr_pairs_read(filepath, extract_pairs_proc, &pair_extractor);
-//    }
+    if (path_ends_with(filepath, ".pairs"))
+    {
+        PAIR_EXTRACTOR pairs_extractor;
+        pairs_extractor_init(pairs_extractor, contig_enzyme_ranges, reads_file, index_map, thread_buffer_size, threads, pairs_read_len, check_flag);
+        //Prepare the worker buffer.
+        MAPPING_WORKER* worker_buffer = new MAPPING_WORKER[threads];
+        //Start BAM filter workers.
+        std::thread *workers = new std::thread[threads];
+        for (int32_t i = 0; i < threads; ++i)
+        {
+            //Initialize the worker.
+            worker_init(worker_buffer[i], i, thread_buffer_size);
+            //Start the worker.
+            workers[i] = std::thread(extract_mapping_pairs_worker, i, std::ref(worker_buffer[i]), std::ref(pairs_extractor));
+        }
+        //Parse the pairs format file.
+        hmr_pairs_read(filepath, extract_pairs_proc, &pairs_extractor);
+        //Exit all the workers.
+        mapping_worker_sync_exit(pairs_extractor.sync, workers);
+        //Recover the memory and dump the data left in their buffer.
+        for (int32_t i = 0; i < threads; ++i)
+        {
+            mapping_buffer_dump(worker_buffer[i].valid_buffer, reads_file);
+            worker_free(worker_buffer[i]);
+        }
+        pairs_extractor_free(pairs_extractor);
+        delete[] workers;
+        delete[] worker_buffer;
+        return;
+    }
     time_print("Unknown file type %s", filepath);
     return;
 }

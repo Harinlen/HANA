@@ -9,11 +9,9 @@ void ordering_edge_map_size_proc(uint64_t, void*)
 inline void insert_edge(int32_t a, int32_t b, int32_t count, ORDERING_COUNTS& map)
 {
     //Swap the b and a when necessary.
-    if (b < a)
+    if (a > b)
     {
-        int32_t temp = b;
-        b = a;
-        a = temp;
+        hmr_swap(a, b);
     }
     //Do the insertion.
     auto iter = map.find(a);
