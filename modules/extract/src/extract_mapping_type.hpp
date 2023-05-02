@@ -18,6 +18,7 @@ typedef struct MAPPING_WORKER
 {
     MAPPING_BUFFER valid_buffer;
     int32_t start_pos, end_pos;
+    int32_t counter;
 } MAPPING_WORKER;
 
 typedef struct MAPPING_WORKER_SYNC
