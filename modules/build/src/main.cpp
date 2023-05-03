@@ -24,7 +24,7 @@ typedef struct CONTIG_SEQ
 } CONTIG_SEQ;
 
 typedef std::vector<CONTIG_SEQ> CONTIG_DICT;
-typedef std::list<CONTIG_SEQ> CONTIG_DICT_LIST;
+typedef std::deque<CONTIG_SEQ> CONTIG_DICT_LIST;
 
 
 static char reverse_bp[26] = {
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
         CONTIG_DICT_LIST contig_list;
         time_print("Constructing FASTA sequence index from %s", opts.fasta);
         hmr_fasta_read(opts.fasta, build_fasta_loader, &contig_list);
-        hMoveListToVector(contig_list, builder.contigs);
+        hDequeListToVector(contig_list, builder.contigs);
         time_print("%zu sequences loaded.", contig_list.size());
     }
     //Open the output file to write data.

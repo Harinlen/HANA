@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-from typing import List
+from typing import List, Union
 from .ext_binary import search_binary
 from .breakpoint import run_command
 from .enzyme import enzyme_validator
@@ -42,7 +42,7 @@ def __hana_module(bin_name: str, params: dict, param_arg_map: dict):
 
 
 def extract(contig_path: str, mapping: List[str], output_prefix: str,
-            enzyme: str, allele_table: str = None,
+            enzyme: Union[str, List[str]], allele_table: str = None,
             enzyme_range: int = 1000, skip_range: bool = None,
             bam_mapq: int = 40, bam_skip_flag: bool = None,
             pairs_read_length: int = 170,
@@ -55,7 +55,7 @@ def extract(contig_path: str, mapping: List[str], output_prefix: str,
         'allele_table': ('-a', str, file_exist_validator),
         'output_prefix': ('-o', str, None),
         'threads': ('-t', int, integer_validator),
-        'enzyme': ('-e', str, enzyme_validator),
+        'enzyme': ('-e', Union[str, List[str]], enzyme_validator),
         'enzyme_range': ('-r', int, integer_validator),
         'bam_mapq': ('-q', int, integer_validator),
         'search_buffer': ('--search-buffer', int, integer_validator),

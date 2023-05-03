@@ -1,6 +1,7 @@
 #ifndef HMR_GLOBAL_H
 #define HMR_GLOBAL_H
 
+#include <deque>
 #include <list>
 #include <vector>
 #include <unordered_set>
@@ -30,6 +31,17 @@ constexpr inline const T hSquare(const T &x) { return x * x; };
 
 template <typename T>
 inline void hMoveListToVector(std::list<T>& t_list, std::vector<T>& t_vector)
+{
+    t_vector.reserve(t_list.size());
+    while (!t_list.empty())
+    {
+        t_vector.emplace_back(t_list.front());
+        t_list.pop_front();
+    }
+}
+
+template <typename T>
+inline void hDequeListToVector(std::deque<T>& t_list, std::vector<T>& t_vector)
 {
     t_vector.reserve(t_list.size());
     while (!t_list.empty())

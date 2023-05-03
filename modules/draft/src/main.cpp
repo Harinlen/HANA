@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
                     hmr_remove_common(row_i, row_j);
                     //We want to find the maximum paired edges between these two rows.
                     //And only one contig is matching the other.
-                    std::list<HMR_EDGE_INFO> edge_list;
+                    std::deque<HMR_EDGE_INFO> edge_list;
                     for(const int32_t contig_i: row_i)
                     {
                         NODE_COUNT_MAP& contig_i_map = edge_pair_map[contig_i];
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
                         continue;
                     }
                     std::vector<HMR_EDGE_INFO> edges;
-                    hMoveListToVector(edge_list, edges);
+                    hDequeListToVector(edge_list, edges);
                     std::sort(edges.begin(), edges.end(),
                               [](const HMR_EDGE_INFO &lhs, const HMR_EDGE_INFO &rhs)
                     {

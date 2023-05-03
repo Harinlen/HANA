@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from typing import List
+
+
 class _EnzymeDict(dict):
     def __setitem__(self, key, value):
         if isinstance(key, tuple):
@@ -9,6 +12,7 @@ class _EnzymeDict(dict):
 
 
 _HANA_ENZYME_MAP = _EnzymeDict()
+_HANA_ENZYME_MAP["Arima"] = ["GATC", "GAAT", "GACT", "GAGT", "GATT"]
 _HANA_ENZYME_MAP["TaqI", "Taq1"] = "TCGA"
 _HANA_ENZYME_MAP["HaeIII", "Hae3"] = "GGCC"
 _HANA_ENZYME_MAP["DpnI", "Dpn1", "DpnII", "Dpn2", "MboI", "Mbo1", "Sau3AI"] = "GATC"
@@ -39,16 +43,34 @@ _HANA_ENZYME_MAP["NdeI", "Nde1"] = "CATATG"
 _HANA_ENZYME_MAP["NotI", "Not1"] = "GCGGCCGC"
 
 
-def enzyme_validator(enzyme: str):
-    if not isinstance(enzyme, str):
-        raise Exception('{} is not a valid restriction sites.'.format(enzyme))
-    # Force enzyme to be upper.
-    enzyme = enzyme.upper()
-    # Check whether it is an alias name recorded in the map.
-    if enzyme in _HANA_ENZYME_MAP:
-        enzyme = _HANA_ENZYME_MAP[enzyme]
-    # Check whether the enzyme is valid.
-    for x in enzyme:
-        if x not in ('A', 'C', 'T', 'G'):
-            raise Exception('Restriction site "{}" contains invalid base pair "{}"'.format(enzyme, x))
-    return enzyme
+def enzyme_validator(enzyme_arg: any) -> List[str]:
+    def __upper_map_convert(enzyme: str):
+        enzyme = enzyme.upper()
+        # Check map exists.
+        if enzyme in _HANA_ENZYME_MAP:
+            enzyme = _HANA_ENZYME_MAP[enzyme]
+        if isinstance(enzyme, str):
+            return [enzyme]
+        return enzyme
+
+    # Check the input argument type.
+    if isinstance(enzyme_arg, str):
+        enzyme_arg = __upper_map_convert(enzyme_arg)
+    if isinstance(enzyme_arg, list):
+        # Go through each element, convert them to uppercase.
+        enzyme_result = []
+        for x in enzyme_arg:
+            enzyme_result += __upper_map_convert(x)
+        enzyme_arg = enzyme_result
+
+    def __enzyme_valid(enzyme: str):
+        if not isinstance(enzyme, str):
+            raise Exception('{} is not a valid restriction sites.'.format(enzyme))
+        # Force enzyme to be upper.
+        for x in enzyme:
+            if x not in ('A', 'C', 'T', 'G'):
+                raise Exception('Restriction site "{}" contains invalid base pair "{}"'.format(enzyme, x))
+
+    for x in enzyme_arg:
+        __enzyme_valid(x)
+    return enzyme_arg

@@ -8,16 +8,18 @@ from hana_scaffold import breakpoint as bp
 hana_scaffold.add_search_path(r'/home/saki/Documents/hmr/HANA/bin/')
 contig_path = r'/home/saki/Documents/dataset/bare/contigs_sim.fasta'
 mapping_paths = [r'/home/saki/Documents/bwa-results/bare/sample.bwa_mem.bam']
+restriction_enzyme = 'MboI'
 work_prefix = r'/home/saki/Documents/hana-results/bare_pip/bare'
+num_of_groups = 12
 num_of_threads = 16
 
 bp.init()
 nodes_path, reads_path = scaffold.extract(contig_path=contig_path,
                                           mapping=mapping_paths,
-                                          output_prefix=work_prefix, enzyme='MboI', threads=num_of_threads)
+                                          output_prefix=work_prefix, enzyme=restriction_enzyme, threads=num_of_threads)
 edges_path = scaffold.draft(hana_nodes=nodes_path, hana_reads=reads_path, output_prefix=work_prefix)
 group_paths = scaffold.partition(hana_nodes=nodes_path, hana_edges=edges_path, output_prefix=work_prefix,
-                                 num_of_groups=12)
+                                 num_of_groups=num_of_groups)
 seq_paths = []
 for group_path in group_paths:
     seq_path, _ = os.path.splitext(group_path)

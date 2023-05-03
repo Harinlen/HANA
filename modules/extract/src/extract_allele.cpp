@@ -6,9 +6,9 @@
 
 #include "extract_allele.hpp"
 
-std::list<size_t> allele_find_tab(char* line, size_t len)
+std::deque<size_t> allele_find_tab(char* line, size_t len)
 {
-    std::list<size_t> stops;
+    std::deque<size_t> stops;
     for (size_t i = 0; i < len; ++i)
     {
         if (line[i] == '\t')
@@ -31,11 +31,11 @@ HMR_CONTIG_ID_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP*
     ssize_t line_size = 0;
     char* line = NULL;
     size_t len = 0;
-    std::list<HMR_CONTIG_ID_VEC> allele_list;
+    std::deque<HMR_CONTIG_ID_VEC> allele_list;
     while ((line_size = (line_handle.parser(&line, &len, &line_handle.buf, line_handle.file_handle))) != -1)
     {
         //Finding all the '\t'.
-        std::list<size_t> column_stops = allele_find_tab(line, static_cast<size_t>(line_size));
+        std::deque<size_t> column_stops = allele_find_tab(line, static_cast<size_t>(line_size));
         //We only care about the lines with 4 or more columns.
         if (column_stops.size() < 3)
         {
@@ -86,6 +86,6 @@ HMR_CONTIG_ID_TABLE extract_allele_table(const char* filepath, CONTIG_INDEX_MAP*
     text_close_read_line(&line_handle);
     //Transfer the allele table into allele map.
     HMR_CONTIG_ID_TABLE allele_table;
-    hMoveListToVector(allele_list, allele_table);
+    hDequeListToVector(allele_list, allele_table);
     return allele_table;
 }

@@ -1,7 +1,7 @@
 #ifndef EXTRACT_FASTA_H
 #define EXTRACT_FASTA_H
 
-#include <list>
+#include <deque>
 
 #include "hmr_contig_graph_type.hpp"
 #include "hmr_thread_pool.hpp"
@@ -14,10 +14,13 @@ typedef struct ENZYME_SEARCH_PARAM
     const char* enzyme;
     int32_t enzyme_length;
     int32_t offset;
+    int32_t last_result;
 } ENZYME_SEARCH_PARAM;
 
-void extract_enzyme_search_start(const char* enzyme, const int32_t enzyme_length, ENZYME_SEARCH_PARAM& search);
-void extract_enzyme_search_end(ENZYME_SEARCH_PARAM& );
+typedef std::vector<ENZYME_SEARCH_PARAM> CANDIDATE_ENZYMES;
+
+void extract_enzyme_search_start(const std::vector<char*> &enzymes, CANDIDATE_ENZYMES& search);
+void extract_enzyme_search_end(CANDIDATE_ENZYMES& );
 
 typedef struct CONTIG_RANGE_RESULT
 {
@@ -26,11 +29,11 @@ typedef struct CONTIG_RANGE_RESULT
     int32_t contig_index;
 } CONTIG_RANGE_RESULT;
 
-typedef std::list<CONTIG_RANGE_RESULT> CONTIG_RANGE_RESULTS;
+typedef std::deque<CONTIG_RANGE_RESULT> CONTIG_RANGE_RESULTS;
 
 typedef struct ENZYME_RANGE_SEARCH
 {
-    ENZYME_SEARCH_PARAM init_search_param;
+    CANDIDATE_ENZYMES init_search_param;
     char* seq;
     size_t seq_size;
     int32_t half_range;
@@ -41,12 +44,12 @@ typedef struct ENZYME_RANGE_SEARCH
 void contig_range_search(const ENZYME_RANGE_SEARCH& param);
 typedef hmr::thread_pool<ENZYME_RANGE_SEARCH> RANGE_SEARCH_POOL;
 
-typedef std::list<HMR_NODE> CONTIG_CHAIN;
-typedef std::list<HMR_NODE_NAME> CONTIG_NAME_CHAIN;
+typedef std::deque<HMR_NODE> CONTIG_CHAIN;
+typedef std::deque<HMR_NODE_NAME> CONTIG_NAME_CHAIN;
 
 typedef struct EXTRACT_FASTA_USER
 {
-    const ENZYME_SEARCH_PARAM& init_search_param;
+    const CANDIDATE_ENZYMES& init_search_param;
     CONTIG_CHAIN& nodes;
     CONTIG_NAME_CHAIN& node_names;
     RANGE_SEARCH_POOL& pool;
