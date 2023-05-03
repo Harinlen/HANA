@@ -38,6 +38,13 @@ ssize_t text_getline_file(char** line, size_t* line_size, TEXT_LINE_BUF* line_bu
         line_buf->buf_size = residual;
         line_buf->offset = 0;
     }
+    //This is a really special case, it just reaches the end.
+    else if (line_buf->offset == line_buf->buf_size)
+    {
+        //So all the data are useless, remove them.
+        line_buf->offset = 0;
+        line_buf->buf_size = 0;
+    }
     //Need to fetch the data.
     FILE* fp = static_cast<FILE*>(file_handle);
     char* target = line_buf->buf + line_buf->buf_size;

@@ -39,13 +39,12 @@ void hmr_pairs_read(const char *filepath, PAIR_PROC proc, void *user)
     while((line_size = (line_handle.parser(&line, &len, &line_handle.buf, line_handle.file_handle))) != -1)
     {
         line_length = static_cast<size_t>(line_size);
-        //We are caring about column 1, 2, 3, 4 and 7. (starts with 0)
-        printf("%c%c%c%c\t%u\t%zu\n", line[0], line[1], line[2], line[3], line[0], line_length);
         //Ignore the # start comment lines.
         if(line_length < 1 || line[0] == '#')
         {
             continue;
         }
+        //We are caring about column 1, 2, 3, 4 and 7. (starts with 0)
         //Find out all the tab line from the line.
         hmr_pairs_fill_tabs(line, line_length, tab_stops, tab_stop_count);
         if(tab_stop_count < 7)

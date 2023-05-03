@@ -372,7 +372,6 @@ typedef struct PAIR_EXTRACTOR
     MAPPING_WORKER_SYNC sync;
     int32_t read_len = 150;
     uint16_t check_flag = 0;
-    int32_t total_counter = 0;
 } PAIR_EXTRACTOR;
 
 void pairs_mapping_buffer_init(PAIRS_MAPPING_BUFFER& buf, size_t buffer_size)
@@ -464,7 +463,6 @@ void extract_pairs_proc(const char *ref, size_t ref_len, const char *next_ref, s
 {
     PAIR_EXTRACTOR *pairs_extractor = static_cast<PAIR_EXTRACTOR *>(user);
     //Search the ref and next ref.
-    ++pairs_extractor->total_counter;
     CONTIG_INDEX_MAP* index_map = pairs_extractor->index_map;
     auto ref_iter = index_map->find(std::string(ref, ref_len)),
             next_iter = index_map->find(std::string(next_ref, next_ref_len));
@@ -569,19 +567,14 @@ void extract_mapping_file(const char* filepath, CONTIG_INDEX_MAP* index_map, FIL
         }
         //Parse the pairs format file.
         hmr_pairs_read(filepath, extract_pairs_proc, &pairs_extractor);
-        //Should be 207781843
-        printf("proc counter=%d\n", pairs_extractor.total_counter);
         //Exit all the workers.
         mapping_worker_sync_exit(pairs_extractor.sync, workers);
         //Recover the memory and dump the data left in their buffer.
-        int32_t total_counter = 0;
         for (int32_t i = 0; i < threads; ++i)
         {
             mapping_buffer_dump(worker_buffer[i].valid_buffer, reads_file);
-            total_counter += worker_buffer[i].counter;
             worker_free(worker_buffer[i]);
         }
-        printf("Worker processed %d pairs.\n", total_counter);
         pairs_extractor_free(pairs_extractor);
         delete[] workers;
         delete[] worker_buffer;

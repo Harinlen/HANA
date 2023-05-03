@@ -7,9 +7,9 @@ from hana_scaffold import breakpoint as bp
 
 hana_scaffold.add_search_path(r'/home/saki/Documents/hmr/HANA/bin/')
 contig_path = r'/home/saki/Documents/dataset/bare/contigs_sim.fasta'
-mapping_paths = [r'/home/saki/Documents/bwa-results/bare/sample.bwa_mem.bam']
+mapping_paths = [r'/home/saki/Documents/chromap-results/bare/h01.pairs']
 restriction_enzyme = 'MboI'
-work_prefix = r'/home/saki/Documents/hana-results/bare_pip/bare'
+work_prefix = r'/home/saki/Documents/hana-results/bare_pairs_pip/bare_pairs'
 num_of_groups = 12
 num_of_threads = 16
 
