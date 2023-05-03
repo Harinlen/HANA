@@ -7,7 +7,7 @@
 HMR_ARGS opts;
 
 HMR_ARG_PARSER args_parser = {
-    { {"-n", "--nodes"}, "NDOES", "HMR contig node file (.hmr_nodes)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
+    { {"-n", "--nodes"}, "NODES", "HMR contig node file (.hmr_nodes)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
     { {"-e", "--edges"}, "EDGES", "HMR edges file (.hmr_edges)", LAMBDA_PARSE_ARG { opts.edges = arg[0];}},
     { {"-a", "--allele"}, "ALLELE_TABLE", "HMR allele table file (.hmr_allele_table)", LAMBDA_PARSE_ARG { opts.allele = arg[0]; }},
     { {"-g", "--group"}, "GROUP", "Number of groups to be partitioned", LAMBDA_PARSE_ARG {opts.groups = atoi(arg[0]); }},

@@ -7,7 +7,7 @@
 HMR_ARGS opts;
 
 HMR_ARG_PARSER args_parser = {
-    { {"-n", "--nodes"}, "NDOES", "HMR contig node file (.hmr_nodes)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
+    { {"-n", "--nodes"}, "NODES", "HMR contig node file (.hmr_nodes)", LAMBDA_PARSE_ARG {opts.nodes = arg[0]; }},
     { {"-r", "--reads"}, "READS", "HMR paired-reads file (.hmr_reads)", LAMBDA_PARSE_ARG { opts.reads = arg[0]; }},
     { {"-a", "--allele-table"}, "ALLELE_TABLE", "Allele contig table (.hmr_allele_table)", LAMBDA_PARSE_ARG {opts.allele_table = arg[0]; }},
     { {"-o", "--output"}, "OUTPUT", "Output graph prefix", LAMBDA_PARSE_ARG {opts.output = arg[0]; }},

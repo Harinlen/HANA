@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: hana-scaffold
+Version: 1.0
+Summary: HANA open Hi-C scaffolding framework Python API
+Author: Saki Tojo
+Author-email: tomguts@126.com
+License: HARERU Software License 1.0
+Requires-Python: >=3.6

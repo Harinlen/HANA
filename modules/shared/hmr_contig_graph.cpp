@@ -3,7 +3,6 @@
 #include <cstring>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 
 #include "hmr_algorithm.hpp"
 #include "hmr_bin_file.hpp"
@@ -27,8 +26,7 @@ struct GRAPH_BUF_LOADER
     GRAPH_LOAD_BUFFER<T>* buf_loading, * buf_processing;
     int32_t buf_size;
     bool is_loaded, finished;
-    std::mutex wait_processing_mutex, wait_loaded_mutex;
-    std::condition_variable wait_processing_cv, wait_loaded_cv;
+    std::mutex loaded_mutex, processed_mutex;
 };
 
 template<typename T>
@@ -76,7 +74,6 @@ void hmr_graph_buffer_loader(const char* filepath, GRAPH_BUF_LOADER<T>& loader, 
         size_proc(item_size, user);
     }
     //Loop until all the data is loaded.
-    std::unique_lock<std::mutex> processing_lock(loader.wait_processing_mutex);
     while (!loader.finished)
     {
         //Start to load data.
@@ -96,13 +93,17 @@ void hmr_graph_buffer_loader(const char* filepath, GRAPH_BUF_LOADER<T>& loader, 
             report_pos += report_size;
         }
         //Set as loaded.
+        loader.loaded_mutex.lock();
         loader.is_loaded = true;
-        //Notify the main thread.
-        loader.wait_loaded_cv.notify_one();
+        loader.loaded_mutex.unlock();
         //Wait for loaded flag to be off.
         if (!loader.finished)
         {
-            loader.wait_processing_cv.wait(processing_lock, [&] {return !loader.is_loaded; });
+            //Wait for loaded data is processing.
+            while(loader.is_loaded)
+            {
+                std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+            }
         }
     }
     fclose(data_file);
@@ -128,15 +129,18 @@ void hmr_graph_load_with_buffer(const char* filepath, int32_t buf_size,
     while (!loader.finished)
     {
         //Wait for the loader loading a chunk.
-        std::unique_lock<std::mutex> loaded_lock(loader.wait_loaded_mutex);
-        loader.wait_loaded_cv.wait(loaded_lock, [&] {return loader.is_loaded; });
+        while(!loader.is_loaded)
+        {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+        }
         //One chunk is loaded, we flip the buffer, let the thread to loaded next part.
         auto buf_temp = loader.buf_loading;
         loader.buf_loading = loader.buf_processing;
         loader.buf_processing = buf_temp;
         //Reset the loaded flag.
+        loader.loaded_mutex.lock();
         loader.is_loaded = false;
-        loader.wait_processing_cv.notify_one();
+        loader.loaded_mutex.unlock();
         //Processing the buffer.
         proc(loader.buf_processing->buf, loader.buf_processing->buf_size, user);
     }

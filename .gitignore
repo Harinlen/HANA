@@ -8,3 +8,4 @@ CMakeLists.txt.user
 x64
 bin
 cmake_build
+.hana_breakpoint

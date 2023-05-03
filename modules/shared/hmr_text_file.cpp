@@ -49,10 +49,10 @@ ssize_t text_getline_file(char** line, size_t* line_size, TEXT_LINE_BUF* line_bu
         {
             break;
         }
-        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[0], target[1], target[2], target[3], target[4], target[5], target[6], target[7]);
-        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[8], target[9], target[10], target[11], target[12], target[13], target[14], target[15]);
-        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[16], target[17], target[18], target[19], target[20], target[21], target[22], target[23]);
-        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[24], target[25], target[26], target[27], target[28], target[29], target[30], target[31]);
+//        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[0], target[1], target[2], target[3], target[4], target[5], target[6], target[7]);
+//        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[8], target[9], target[10], target[11], target[12], target[13], target[14], target[15]);
+//        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[16], target[17], target[18], target[19], target[20], target[21], target[22], target[23]);
+//        printf("%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", target[24], target[25], target[26], target[27], target[28], target[29], target[30], target[31]);
         //Add the readed bytes into buffer size.
         line_buf->buf_size += inc_size;
         //Search the '\n' char in the new buffer area.

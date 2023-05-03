@@ -3,7 +3,6 @@
 #include <cstring>
 #include <numeric>
 #include <mutex>
-#include <condition_variable>
 #include <thread>
 
 #include "hmr_algorithm.hpp"
@@ -40,8 +39,8 @@ typedef struct ORDERING_EA
     ORDERING_TIG* target_buffer;
 
     int32_t mutate_complete_counter;
-    std::mutex mutate_mutex, mutate_complete_mutex, complete_thread_lock;
-    std::condition_variable mutate_cv, mutate_complete_cv;
+    std::mutex *mutate_mutex;
+    std::mutex complete_thread_lock;
     uint64_t* mutate_seeds;
     bool* mutate_flag, mutate_exit;
 } ORDERING_EA;
@@ -334,7 +333,6 @@ void ordering_offspring_worker(const int32_t idx, const int32_t threads, const O
             end_idx = ea->num_of_seqs;
         }
     }
-    std::unique_lock<std::mutex> lock(ea->mutate_mutex);
     std::mt19937_64 rng(ea->mutate_seeds[idx]);
     std::uniform_real_distribution<double> rate(0.0, 1.0);
     const double mut_rate = ea->mut_rate;
@@ -343,7 +341,10 @@ void ordering_offspring_worker(const int32_t idx, const int32_t threads, const O
     while (true)
     {
         //Wait for the start signal.
-        ea->mutate_cv.wait(lock, [&] { return ea->mutate_flag[idx]; });
+        while(!ea->mutate_flag[idx])
+        {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+        }
         if (ea->mutate_exit)
         {
             //Just exit the thread.
@@ -368,16 +369,14 @@ void ordering_offspring_worker(const int32_t idx, const int32_t threads, const O
             }
         }
         //Disable the available flag.
+        ea->mutate_mutex[idx].lock();
         ea->mutate_flag[idx] = false;
+        ea->mutate_mutex[idx].unlock();
         //Process the data based on the threads.
         {
             ea->complete_thread_lock.lock();
             ++ea->mutate_complete_counter;
             ea->complete_thread_lock.unlock();
-        }
-        if (ea->mutate_complete_counter == threads)
-        {
-            ea->mutate_complete_cv.notify_one();
         }
     }
 }
@@ -432,6 +431,7 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         mutate_workers = new std::thread[threads];
         ea.mutate_flag = new bool[threads];
         ea.mutate_seeds = new uint64_t[threads];
+        ea.mutate_mutex = new std::mutex[threads];
         ea.mutate_exit = false;
         for (int32_t i = 0; i < threads; ++i)
         {
@@ -475,7 +475,6 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
     time_print("EA Phase %d, Generation %-12dscore: %.5lf", phase, ea.generations, ea.best_score);
     //Run EA algorithm with the configuration above.
     uint32_t ui_gen_counter = 0;
-    std::unique_lock<std::mutex> mutate_complete_lock(ea.mutate_complete_mutex);
     for (ea.generations = 0; ea.generations < maxgen; ++ea.generations)
     {
         //Convergence criteria.
@@ -508,16 +507,21 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         }
         else
         {
+            ea.complete_thread_lock.lock();
+            ea.mutate_complete_counter = 0;
+            ea.complete_thread_lock.unlock();
             //Reset the thread start flag.
             for (int32_t i = 0; i < threads; ++i)
             {
+                ea.mutate_mutex[i].lock();
                 ea.mutate_flag[i] = true;
+                ea.mutate_mutex[i].unlock();
             }
-            ea.mutate_complete_counter = 0;
-            //Start the working threads.
-            ea.mutate_cv.notify_all();
             //Wait for everyone complete working.
-            ea.mutate_complete_cv.wait(mutate_complete_lock);
+            while(ea.mutate_complete_counter != threads)
+            {
+                std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+            }
         }
         //Sort the target buffer.
         ordering_evaluate_sort(ea.target_eva, ea.num_of_seqs);
@@ -557,12 +561,12 @@ HMR_CONTIG_ID_VEC ordering_ea_optimize(int32_t phase, int npop, int ngen, uint64
         {
             ea.mutate_flag[i] = true;
         }
-        ea.mutate_cv.notify_all();
         //Request to kill all the threads.
         for (int32_t i = 0; i < threads; ++i)
         {
             mutate_workers[i].join();
         }
+        delete[] ea.mutate_mutex;
         delete[] ea.mutate_seeds;
         delete[] ea.mutate_flag;
         delete[] mutate_workers;
