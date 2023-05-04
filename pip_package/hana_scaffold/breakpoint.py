@@ -22,7 +22,7 @@ class BreakPoint(dict):
         except Exception:
             raise Exception('Bad breakpoint detected.')
         # Reset the step current to first.
-        if _BP_DATA['finished']:
+        if _BP_DATA['finished'] or '-f' in sys.argv:
             _BP_DATA['finished'] = False
             self['step_last'] = -1
         else:
