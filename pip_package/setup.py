@@ -2,7 +2,7 @@
 from setuptools import setup
 
 setup(name='hana_scaffold',
-      version='1.0',
+      version='1.0.1',
       description='HANA open Hi-C scaffolding framework Python API',
       author='Saki Tojo',
       author_email='tomguts@126.com',

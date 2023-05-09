@@ -60,15 +60,38 @@ def finish():
         _BP_DATA.save()
 
 
-def run_command(mod_args: list):
+def _breakpoint_execute(callback):
     global _BP_DATA
     # Update the current step ID.
     _BP_DATA['step_current'] += 1
     # If breakpoint is initialized and passed the last step.
     if not _BP_INIT or _BP_DATA['step_current'] > _BP_DATA['step_last']:
         # This step cannot be skipped.
+        callback()
+    # Save the breakpoint.
+    _BP_DATA.save()
+
+
+def run_command(mod_args: list):
+    def execute():
         print('> {}'.format(' '.join(mod_args)))
         mod_proc = subprocess.Popen(mod_args)
         mod_proc.wait()
-    # Save the breakpoint.
-    _BP_DATA.save()
+    _breakpoint_execute(execute)
+
+
+def run_pipeline(mod_pipeline: list):
+    if len(mod_pipeline) == 1:
+        return run_command(mod_pipeline[0])
+
+    def execute():
+        print('>', ' | '.join(' '.join(x) for x in mod_pipeline))
+        # Run the first command.
+        last_proc = subprocess.Popen(mod_pipeline[0], stdout=subprocess.PIPE)
+        # Run the body commands.
+        for mod_body in mod_pipeline[1:-2]:
+            last_proc = subprocess.Popen(mod_body, stdin=last_proc.stdout, stdout=subprocess.PIPE)
+        # Run the last command.
+        last_proc = subprocess.Popen(mod_pipeline[-1], stdin=last_proc.stdout)
+        last_proc.wait()
+    _breakpoint_execute(execute())

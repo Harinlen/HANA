@@ -3,17 +3,25 @@ import os
 import hana_scaffold
 from hana_scaffold import module as scaffold
 from hana_scaffold import breakpoint as bp
+from hana_scaffold import map as mapping
 
 
 hana_scaffold.add_search_path(r'/home/saki/Documents/hmr/HANA/bin/')
-contig_path = r'/home/saki/Documents/dataset/bare/contigs_sim.fasta'
-mapping_paths = [r'/home/saki/Documents/chromap-results/bare/h01.pairs']
+work_dir = '/home/saki/Documents/hana-results/bare_auto/'
+contig_path = 'contigs_sim.fasta'
+hic_lib_paths = [('SRR6470741_1.fastq.gz', 'SRR6470741_2.fastq.gz')]
 restriction_enzyme = 'MboI'
-work_prefix = r'/home/saki/Documents/hana-results/bare_pairs_pip/bare_pairs'
+work_prefix = 'bare_bam'
 num_of_groups = 12
 num_of_threads = 16
 
 bp.init()
+os.chdir(work_dir)
+mapping_paths = []
+for lib_id, (lib_forward_path, lib_reverse_path) in enumerate(hic_lib_paths):
+    mapping_paths.append(mapping.bwa_mem(contig_path=contig_path,
+                                         lib_forward_path=lib_forward_path, lib_reverse_path=lib_reverse_path,
+                                         bam_path='lib_{}.bwa_mem.bam'.format(lib_id), num_of_threads=num_of_threads))
 nodes_path, reads_path = scaffold.extract(contig_path=contig_path,
                                           mapping=mapping_paths,
                                           output_prefix=work_prefix, enzyme=restriction_enzyme, threads=num_of_threads)

@@ -2,7 +2,10 @@
 #define HMR_BIN_ENZYME_H
 
 #include <vector>
+#include <string>
 
-void hmr_enzyme_formalize(char* enzyme, const size_t &enzyme_size);
+typedef std::vector<std::string> ENZYME_VEC;
+
+ENZYME_VEC hmr_enzyme_formalize(std::vector<char*> &enzyme);
 
 #endif // HMR_BIN_ENZYME

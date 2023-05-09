@@ -68,7 +68,7 @@ def enzyme_validator(enzyme_arg: any) -> List[str]:
             raise Exception('{} is not a valid restriction sites.'.format(enzyme))
         # Force enzyme to be upper.
         for x in enzyme:
-            if x not in ('A', 'C', 'T', 'G'):
+            if x not in ('A', 'C', 'T', 'G', 'R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N'):
                 raise Exception('Restriction site "{}" contains invalid base pair "{}"'.format(enzyme, x))
 
     for x in enzyme_arg:

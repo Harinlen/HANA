@@ -36,19 +36,30 @@ int main(int argc, char* argv[])
     if (!opts.output) { help_exit(-1, "Missing output file prefix."); }
     //Check enzyme validation.
     if (opts.enzyme.empty()) { help_exit(-1, "Missing restriction enzyme cutting site(s)."); }
-    for (char *enzyme: opts.enzyme)
+    ENZYME_VEC enzymes = hmr_enzyme_formalize(opts.enzyme), weighted_enzymes;
+    if (!opts.weight_enzyme.empty())
     {
-        hmr_enzyme_formalize(enzyme, static_cast<size_t>(strlen(enzyme)));
+        //Formalize the weighted enzyme.
+        weighted_enzymes = hmr_enzyme_formalize(opts.weight_enzyme);
     }
     time_print("Execution configuration:");
     time_print("\tBAM minimum map quality: %d", opts.mapq);
     {
-        std::string enzyme_total(opts.enzyme[0]);
-        for (size_t i=1; i<opts.enzyme.size(); ++i)
+        std::string enzyme_total = enzymes[0];
+        for (size_t i=1; i<enzymes.size(); ++i)
         {
-            enzyme_total += ", " + std::string(opts.enzyme[i]);
+            enzyme_total += ", " + std::string(enzymes[i]);
         }
         time_print("\tRestriction enzyme(s): %s", enzyme_total.c_str());
+    }
+    if(!weighted_enzymes.empty())
+    {
+        std::string enzyme_total = weighted_enzymes[0];
+        for (size_t i=1; i<weighted_enzymes.size(); ++i)
+        {
+            enzyme_total += ", " + std::string(weighted_enzymes[i]);
+        }
+        time_print("\tWeight calculated restriction enzyme(s): %s", enzyme_total.c_str());
     }
     time_print("\tValid enzyme distance of Hi-C pairs: %dx2", opts.range);
     time_print("\tRead length used for pairs file: %d", opts.pairs_read_len);
@@ -67,8 +78,12 @@ int main(int argc, char* argv[])
     CONTIG_ENZYME_RANGES contig_enzyme_ranges;
     {
         //Prepare the enzyme for searching.
-        CANDIDATE_ENZYMES search_param;
-        extract_enzyme_search_start(opts.enzyme, search_param);
+        CANDIDATE_ENZYMES search_range, search_calc;
+        extract_enzyme_search_start(enzymes, search_range);
+        if(!weighted_enzymes.empty())
+        {
+            extract_enzyme_search_start(weighted_enzymes, search_calc);
+        }
         CONTIG_CHAIN node_chain;
         CONTIG_NAME_CHAIN node_name_chain;
         CONTIG_RANGE_RESULTS node_ranges;
@@ -76,11 +91,11 @@ int main(int argc, char* argv[])
             //Start the enzyme search pool.
             RANGE_SEARCH_POOL pool(contig_range_search, opts.threads * opts.fasta_pool, opts.threads);
             //Construct the contig info build user.
-            EXTRACT_FASTA_USER node_build_user {search_param, node_chain, node_name_chain, pool, opts.range, node_ranges };
+            EXTRACT_FASTA_USER node_build_user {search_range, search_calc, node_chain, node_name_chain, pool, opts.range, node_ranges };
             time_print("Searching enzyme in %s", opts.fasta);
             hmr_fasta_read(opts.fasta, extract_fasta_search_proc, &node_build_user);
         }
-        extract_enzyme_search_end(search_param);
+        extract_enzyme_search_end(search_range);
         //Convert the node chain into node vector.
         hDequeListToVector(node_name_chain, nodes.names);
         hDequeListToVector(node_chain, nodes.contigs);

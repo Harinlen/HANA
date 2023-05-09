@@ -11,15 +11,6 @@ HANA_BIN_DIR = os.path.join(HANA_DIR, 'bin')
 HANA_PY_DIR = os.path.join(HANA_DIR, 'automated')
 
 
-def parse_args():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-w', '--work_dir', metavar='WORK_DIR', default='cmake_build',
-                        help='CMake work directory')
-    parser.add_argument('-i', '--install', metavar='INSTALL_DIR', default='', help='Install directory')
-    return parser.parse_args()
-
-
 def make_hana_unix_like(work_dir: str):
     work_dir = os.path.abspath(work_dir)
     print('Building HANA in {}'.format(work_dir))
@@ -60,10 +51,19 @@ def make_hana_unix_like(work_dir: str):
 
 
 def main():
-    # Find the CMake binaries.
-    args = parse_args()
     # No matter how, make the HANA.
-    make_hana_unix_like(args.work_dir)
+    make_hana_unix_like('cmake_build')
+    # Check whether we have to install the binaries to a specific directory.
+    if len(sys.argv) > 1:
+        # Try to copy the binaries to the target directory.
+        target_dir = sys.argv[1]
+        if not os.path.isdir(target_dir):
+            raise Exception('{} is not a directory'.format(target_dir))
+        print('Installing hana...')
+        for hana_bin in HANA_COMPONENTS:
+            print('Copying hana_{}...'.format(hana_bin))
+            shutil.copy2(os.path.join(HANA_BIN_DIR, 'hana_{}'.format(hana_bin)),
+                         os.path.join(target_dir, 'hana_{}'.format(hana_bin)))
     return 0
 
 
