@@ -14,9 +14,9 @@ num_of_groups = 12
 num_of_threads = 16
 
 bp.init()
-nodes_path, reads_path = scaffold.extract(contig_path=contig_path,
-                                          mapping=mapping_paths,
-                                          output_prefix=work_prefix, enzyme=restriction_enzyme, threads=num_of_threads)
+nodes_path, reads_path, _ = scaffold.extract(contig_path=contig_path,
+                                             mapping=mapping_paths,
+                                             output_prefix=work_prefix, enzyme=restriction_enzyme, threads=num_of_threads)
 edges_path = scaffold.draft(hana_nodes=nodes_path, hana_reads=reads_path, output_prefix=work_prefix)
 group_paths = scaffold.partition(hana_nodes=nodes_path, hana_edges=edges_path, output_prefix=work_prefix,
                                  num_of_groups=num_of_groups)

@@ -70,7 +70,13 @@ def extract(contig_path: str, mapping: List[str], output_prefix: str,
     reads_path = '{}.hmr_reads'.format(output_prefix)
     file_exist_validator(nodes_path)
     file_exist_validator(reads_path)
-    return nodes_path, reads_path
+    # Check allele table.
+    if allele_table is not None:
+        allele_path = '{}.hmr_allele_table'.format(output_prefix)
+        file_exist_validator(allele_path)
+    else:
+        allele_path = None
+    return nodes_path, reads_path, allele_path
 
 
 def draft(hana_nodes: str, hana_reads: str, output_prefix: str,

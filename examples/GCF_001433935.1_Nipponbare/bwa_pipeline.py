@@ -22,9 +22,9 @@ for lib_id, (lib_forward_path, lib_reverse_path) in enumerate(hic_lib_paths):
     mapping_paths.append(mapping.bwa_mem(contig_path=contig_path,
                                          lib_forward_path=lib_forward_path, lib_reverse_path=lib_reverse_path,
                                          bam_path='lib_{}.bwa_mem.bam'.format(lib_id), num_of_threads=num_of_threads))
-nodes_path, reads_path = scaffold.extract(contig_path=contig_path,
-                                          mapping=mapping_paths,
-                                          output_prefix=work_prefix, enzyme=restriction_enzyme, threads=num_of_threads)
+nodes_path, reads_path, _ = scaffold.extract(contig_path=contig_path,
+                                             mapping=mapping_paths,
+                                             output_prefix=work_prefix, enzyme=restriction_enzyme, threads=num_of_threads)
 edges_path = scaffold.draft(hana_nodes=nodes_path, hana_reads=reads_path, output_prefix=work_prefix)
 group_paths = scaffold.partition(hana_nodes=nodes_path, hana_edges=edges_path, output_prefix=work_prefix,
                                  num_of_groups=num_of_groups)

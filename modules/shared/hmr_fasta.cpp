@@ -47,8 +47,6 @@ inline void fasta_yield_line(char *line, size_t line_size, FASTA_PARSE &args, in
         {
             if(args.seq_data != NULL)
             {
-                //Upper the sequence.
-                hmr_seq_upper(args.seq_data, args.seq_data_len);
                 //Yield the line parser.
                 args.user_parser(index, args.seq_name, args.seq_name_len, args.seq_data, args.seq_data_len, args.user);
                 ++index;
@@ -113,7 +111,6 @@ void hmr_fasta_read(const char *filepath, FASTA_PROC parser, void *user)
         fasta_yield_line(line, line_length, args, index);
     }
     //At the end of the line, yield the last result.
-    hmr_seq_upper(args.seq_data, args.seq_data_len);
     parser(index, args.seq_name, args.seq_name_len, args.seq_data, args.seq_data_len, user);
     //Close the file.
     text_close_read_line(&line_handle);

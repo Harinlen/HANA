@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "hmr_global.hpp"
+#include "hmr_seq.hpp"
 
 #include "extract_fasta.hpp"
 
@@ -76,6 +77,30 @@ void contig_range_search(const ENZYME_RANGE_SEARCH& param)
     {
         search.last_result = contig_draft_search(seq, seq_size, search);
     }
+    //Check range search param.
+    int32_t calc_counter = -1;
+    if(!param.init_search_calc.empty())
+    {
+        //Perform weight counter calculator search.
+        CANDIDATE_ENZYMES calc_param = param.init_search_calc;
+        for (ENZYME_SEARCH_PARAM& search: calc_param)
+        {
+            search.last_result = contig_draft_search(seq, seq_size, search);
+        }
+        //Fetch the enzyme position.
+        int32_t calc_enzyme_pos = contig_draft_search_next(seq, seq_size, calc_param);
+        //Reset the counter.
+        calc_counter = 0;
+        while (calc_enzyme_pos != -1)
+        {
+            //Increase the counter.
+            ++calc_counter;
+            //Perform the next search.
+            calc_enzyme_pos = contig_draft_search_next(seq, seq_size, calc_param);
+        }
+    }
+    //Set the sequence to be upper case.
+    hmr_seq_upper(param.seq, param.seq_size);
     //Fetch the enzyme position.
     int32_t enzyme_pos = contig_draft_search_next(seq, seq_size, range_param), counter = 0;
     while (enzyme_pos != -1)
@@ -100,33 +125,12 @@ void contig_range_search(const ENZYME_RANGE_SEARCH& param)
         //Perform the next search.
         enzyme_pos = contig_draft_search_next(seq, seq_size, range_param);
     }
-    //Check range search param.
-    if(!param.init_search_calc.empty())
-    {
-        //Perform weight counter calculator search.
-        CANDIDATE_ENZYMES calc_param = param.init_search_calc;
-        for (ENZYME_SEARCH_PARAM& search: calc_param)
-        {
-            search.last_result = contig_draft_search(seq, seq_size, search);
-        }
-        //Fetch the enzyme position.
-        int32_t calc_enzyme_pos = contig_draft_search_next(seq, seq_size, calc_param);
-        //Reset the counter.
-        counter = 0;
-        while (calc_enzyme_pos != -1)
-        {
-            //Increase the counter.
-            ++counter;
-            //Perform the next search.
-            calc_enzyme_pos = contig_draft_search_next(seq, seq_size, calc_param);
-        }
-    }
     //Recover the sequence memory.
     free(param.seq);
     //Construct the enzyme range result.
     CONTIG_RANGE_RESULT contig_result;
     contig_result.contig_index = param.contig_index;
-    contig_result.counter = counter;
+    contig_result.counter = calc_counter == -1 ? counter : calc_counter;
     hDequeListToVector(ranges, contig_result.ranges);
     {
         enzyme_search_result_mutex.lock();
