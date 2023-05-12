@@ -48,7 +48,7 @@ def extract(contig_path: str, mapping: List[str], output_prefix: str,
             bam_mapq: int = 40, bam_skip_flag: bool = None,
             pairs_read_length: int = 170,
             search_buffer: int = 32, mapping_buffer: int = 512,
-            threads: int = 1):
+            threads: int = 1, **kwargs):
     # Execute the binary.
     __hana_module('hana_extract', locals(), {
         'contig_path': ('-f', str, file_exist_validator),
@@ -82,7 +82,7 @@ def extract(contig_path: str, mapping: List[str], output_prefix: str,
 def draft(hana_nodes: str, hana_reads: str, output_prefix: str,
           allele_table: str = None, reads_buffer: int = 512,
           node_min_links: int = 3, node_min_re: int = 10,
-          node_max_density: float = 2.0):
+          node_max_density: float = 2.0, **kwargs):
     __hana_module('hana_draft', locals(), {
         'hana_nodes': ('-n', str, file_exist_validator),
         'hana_reads': ('-r', str, file_exist_validator),
@@ -101,7 +101,7 @@ def draft(hana_nodes: str, hana_reads: str, output_prefix: str,
 
 def partition(hana_nodes: str, hana_edges: str, num_of_groups: int, output_prefix: str,
               hana_allele_table: str = None, edges_buffer: int = 512,
-              node_non_informative_ratio: int = 3):
+              node_non_informative_ratio: int = 3, **kwargs):
     __hana_module('hana_partition', locals(), {
         'hana_nodes': ('-n', str, file_exist_validator),
         'hana_edges': ('-e', str, file_exist_validator),
@@ -120,7 +120,7 @@ def partition(hana_nodes: str, hana_edges: str, num_of_groups: int, output_prefi
 def ordering(hana_nodes: str, hana_edges: str, hana_group: str, output_path: str,
              threads: int = 1, edges_buffer: int = 512,
              ea_seed: int = 806, ea_mutation_rate: float = 0.2, ea_converge_gens: int = 5000,
-             ea_max_gens: int = 1000000, ea_num_of_populations: int = 100):
+             ea_max_gens: int = 1000000, ea_num_of_populations: int = 100, **kwargs):
     __hana_module('hana_ordering', locals(), {
         'hana_nodes': ('-n', str, file_exist_validator),
         'hana_edges': ('-e', str, file_exist_validator),
@@ -140,7 +140,7 @@ def ordering(hana_nodes: str, hana_edges: str, hana_group: str, output_path: str
 
 
 def orientation(hana_nodes: str, hana_reads: str, hana_seqs: List[str],
-                reads_buffer: int = 512):
+                reads_buffer: int = 512, **kwargs):
     __hana_module('hana_orientation', locals(), {
         'hana_nodes': ('-n', str, file_exist_validator),
         'hana_reads': ('-r', str, file_exist_validator),
@@ -157,7 +157,7 @@ def orientation(hana_nodes: str, hana_reads: str, hana_seqs: List[str],
     return chromo_paths
 
 
-def build(contig_path: str, hana_chromos: List[str], output_prefix: str):
+def build(contig_path: str, hana_chromos: List[str], output_prefix: str, **kwargs):
     __hana_module('hana_build', locals(), {
         'contig_path': ('-f', str, file_exist_validator),
         'hana_chromos': ('-c', list, file_list_exist_validator),

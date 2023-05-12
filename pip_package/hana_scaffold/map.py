@@ -4,7 +4,7 @@ from .ext_binary import search_binary
 from .breakpoint import run_command, run_pipeline
 
 
-def bwa_mem(contig_path: str, lib_forward_path: str, lib_reverse_path: str, bam_path: str, num_of_threads: int):
+def bwa_mem(contig_path: str, lib_forward_path: str, lib_reverse_path: str, output_path: str, threads: int, **kwargs):
     # Try to find the binary in environment.
     bwa_path = search_binary('bwa')
     if len(bwa_path) == 0:
@@ -14,7 +14,7 @@ def bwa_mem(contig_path: str, lib_forward_path: str, lib_reverse_path: str, bam_
         raise Exception('Failed to find Samtools, please check environment variable or reinstall Samtools.')
     # Check whether the contig is already index.
     if not os.path.isfile(contig_path):
-        raise FileNotFoundError('Contig file does not exit: {}'.format(contig_path))
+        raise FileNotFoundError('Contig file does not exist: {}'.format(contig_path))
     if not os.path.isfile(lib_forward_path):
         raise FileNotFoundError('Forward Hi-C library does not exist: {}'.format(lib_forward_path))
     if not os.path.isfile(lib_reverse_path):
@@ -33,22 +33,22 @@ def bwa_mem(contig_path: str, lib_forward_path: str, lib_reverse_path: str, bam_
         # Need to index the FASTA file first.
         run_command([bwa_path, 'index', contig_path])
     # Then execute the BWA MEM mapping.
-    run_pipeline([[bwa_path, 'mem', '-SP5M', '-t', str(num_of_threads), contig_path, lib_forward_path, lib_reverse_path],
+    run_pipeline([[bwa_path, 'mem', '-SP5M', '-t', str(threads), contig_path, lib_forward_path, lib_reverse_path],
                   [samtools_path, 'view', '-hF', '256', '-'],
-                  [samtools_path, 'sort', '-@', str(num_of_threads), '-o', bam_path, '-T', 'tmp.ali']])
-    if not os.path.isfile(bam_path):
-        raise FileNotFoundError('Mapping file not generated: {}'.format(bam_path))
-    return bam_path
+                  [samtools_path, 'sort', '-@', str(threads), '-o', output_path, '-T', 'tmp.ali']])
+    if not os.path.isfile(output_path):
+        raise FileNotFoundError('Mapping file not generated: {}'.format(output_path))
+    return output_path
 
 
-def chromap(contig_path: str, lib_forward_path: str, lib_reverse_path: str, pairs_path: str):
+def chromap(contig_path: str, lib_forward_path: str, lib_reverse_path: str, output_path: str, **kwargs):
     # Try to find the binary in environment.
     chromap_path = search_binary('chromap')
     if len(chromap_path) == 0:
         raise Exception('Failed to find chromap, please check environment variable or reinstall chromap.')
     # Check whether the contig is already index.
     if not os.path.isfile(contig_path):
-        raise FileNotFoundError('Contig file does not exit: {}'.format(contig_path))
+        raise FileNotFoundError('Contig file does not exist: {}'.format(contig_path))
     if not os.path.isfile(lib_forward_path):
         raise FileNotFoundError('Forward Hi-C library does not exist: {}'.format(lib_forward_path))
     if not os.path.isfile(lib_reverse_path):
@@ -61,7 +61,7 @@ def chromap(contig_path: str, lib_forward_path: str, lib_reverse_path: str, pair
 
     # Just run chromap.
     run_command([chromap_path, '--preset', 'hic', '-x', fasta_index_path, '-r', contig_path, '-1', lib_forward_path,
-                 '-2', lib_reverse_path, '-o', pairs_path])
-    if not os.path.isfile(pairs_path):
-        raise FileNotFoundError('Mapping file not generated: {}'.format(pairs_path))
-    return pairs_path
+                 '-2', lib_reverse_path, '-o', output_path])
+    if not os.path.isfile(output_path):
+        raise FileNotFoundError('Mapping file not generated: {}'.format(output_path))
+    return output_path
