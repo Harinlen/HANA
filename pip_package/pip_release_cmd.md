@@ -5,7 +5,7 @@ pip install .
 
 To build pypi package:
 ```
-python setup.pu sdist
+python setup.py sdist
 ```
 
 To upload the package to pypi:
